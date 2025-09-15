@@ -1,0 +1,133 @@
+import Docker from 'dockerode';
+import crypto from 'crypto';
+import { DeployRequest, DeployResponse } from '../types';
+import { deployConfig } from '../config';
+import https from 'https';
+import http from 'http';
+
+function postJson(urlString: string, body: unknown, headers: Record<string, string> = {}): Promise<void> {
+  return new Promise((resolve, reject) => {
+    try {
+      const url = new URL(urlString);
+      const data = Buffer.from(JSON.stringify(body));
+      const options: https.RequestOptions = {
+        method: 'POST',
+        hostname: url.hostname,
+        port: url.port || (url.protocol === 'https:' ? 443 : 80),
+        path: url.pathname + (url.search || ''),
+        headers: {
+          'content-type': 'application/json',
+          'content-length': String(data.length),
+          ...headers,
+        },
+      };
+      const client = url.protocol === 'https:' ? https : http;
+      const req = client.request(options, (res) => {
+        res.on('data', () => {});
+        res.on('end', () => resolve());
+      });
+      req.on('error', reject);
+      req.write(data);
+      req.end();
+    } catch (e) {
+      reject(e);
+    }
+  });
+}
+
+export class DeployService {
+  private docker: Docker;
+
+  constructor() {
+    this.docker = new Docker({ socketPath: deployConfig.dockerSockPath });
+  }
+
+  private generateDeploymentId(): string {
+    return crypto.randomUUID ? crypto.randomUUID() : crypto.randomBytes(16).toString('hex');
+  }
+
+  private async pullImage(fullImage: string): Promise<void> {
+    const [registry] = fullImage.split('/');
+    const authconfig = (deployConfig.dockerUsername && deployConfig.dockerPassword)
+      ? { username: deployConfig.dockerUsername, password: deployConfig.dockerPassword, serveraddress: registry }
+      : undefined;
+
+    await new Promise<void>((resolve, reject) => {
+      this.docker.pull(fullImage, { authconfig }, (err, stream) => {
+        if (err) return reject(err);
+        if (!stream) return reject(new Error('docker pull returned no stream'));
+        this.docker.modem.followProgress(stream, (err2) => (err2 ? reject(err2) : resolve()));
+      });
+    });
+  }
+
+  private async stopAndRemoveContainer(containerName: string): Promise<void> {
+    try {
+      const container = this.docker.getContainer(containerName);
+      await container.inspect();
+      try { await container.stop({ t: 10 }); } catch {}
+      try { await container.remove({ force: true }); } catch {}
+    } catch { /* not exists */ }
+  }
+
+  private async pruneImagesIfNeeded(): Promise<void> {
+    if (!deployConfig.pruneImages) return;
+    if (deployConfig.pruneStrategy === 'dangling') {
+      await this.docker.pruneImages({ filters: { dangling: { true: true } as any } as any });
+    }
+  }
+
+  private async sendCallback(payload: any): Promise<void> {
+    if (!deployConfig.callbackUrl) return;
+    const headers = { ...deployConfig.callbackHeaders };
+    if (deployConfig.callbackSecret) {
+      const signature = crypto.createHmac('sha256', deployConfig.callbackSecret).update(JSON.stringify(payload)).digest('hex');
+      headers['x-webhook-signature'] = signature;
+    }
+    try {
+      await postJson(deployConfig.callbackUrl, payload, headers);
+    } catch (e) {
+      console.error('[deploy-webhook] callback failed:', e);
+    }
+  }
+
+  async deploy(params: DeployRequest): Promise<DeployResponse> {
+    const deploymentId = this.generateDeploymentId();
+    const startedAt = new Date().toISOString();
+    const name = String(params.name);
+    const repo = String(params.repo);
+    const version = String(params.version);
+    const port = Number(params.port);
+    const containerPort = Number(params.containerPort);
+
+    const fullImage = `${deployConfig.registryHost}/${repo}:${version}`;
+
+    try {
+      await this.pullImage(fullImage);
+      await this.stopAndRemoveContainer(name);
+
+      const createOptions: Docker.ContainerCreateOptions = {
+        name,
+        Image: fullImage,
+        HostConfig: {
+          RestartPolicy: { Name: 'unless-stopped' },
+          PortBindings: { [`${containerPort}/tcp`]: [{ HostPort: String(port) }] },
+        },
+        ExposedPorts: { [`${containerPort}/tcp`]: {} },
+      };
+
+      const container = await this.docker.createContainer(createOptions);
+      await container.start();
+
+      await this.pruneImagesIfNeeded();
+
+      const result: DeployResponse = { success: true, code: 0, stdout: `deploymentId=${deploymentId}`, stderr: '', deploymentId };
+      await this.sendCallback({ ...result, startedAt, finishedAt: new Date().toISOString(), params: { name, repo, version, port, containerPort } });
+      return result;
+    } catch (error: any) {
+      const fail: DeployResponse = { success: false, error: error?.message || String(error), stderr: error?.stack || String(error), deploymentId };
+      await this.sendCallback({ ...fail, startedAt, finishedAt: new Date().toISOString(), params: { name, repo, version, port, containerPort } });
+      return fail;
+    }
+  }
+}

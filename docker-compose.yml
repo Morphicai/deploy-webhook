@@ -1,0 +1,91 @@
+version: '3.8'
+
+services:
+  deploy-webhook:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: deploy-webhook
+    ports:
+      - "${PORT:-9000}:9000"
+    volumes:
+      - ${DOCKER_SOCK_PATH:-/var/run/docker.sock}:${DOCKER_SOCK_PATH:-/var/run/docker.sock}
+      - ./logs:/app/logs
+    environment:
+      - NODE_ENV=production
+      - PORT=${PORT:-9000}
+      - WEBHOOK_SECRET=${WEBHOOK_SECRET}
+      - DEFAULT_CONTAINER_NAME=${DEFAULT_CONTAINER_NAME:-morphicai-app-shell}
+      - IMAGE_NAME=${IMAGE_NAME}
+      - IMAGE_NAME_WHITELIST=${IMAGE_NAME_WHITELIST}
+      - REGISTRY_HOST=${REGISTRY_HOST}
+      - HOST_PORT=${HOST_PORT}
+      - CONTAINER_PORT=${CONTAINER_PORT}
+      - DOCKER_RUN_OPTS=${DOCKER_RUN_OPTS}
+      - UPDATE_SCRIPT_PATH=./scripts/deploy.sh
+      - DOCKER_USERNAME=${DOCKER_USERNAME}
+      - DOCKER_PASSWORD=${DOCKER_PASSWORD}
+      - DOCKER_SOCK_PATH=${DOCKER_SOCK_PATH:-/var/run/docker.sock}
+      - CALLBACK_URL=${CALLBACK_URL}
+      - CALLBACK_HEADERS=${CALLBACK_HEADERS}
+      - CALLBACK_SECRET=${CALLBACK_SECRET}
+      - PRUNE_IMAGES=${PRUNE_IMAGES}
+      - PRUNE_STRATEGY=${PRUNE_STRATEGY}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - deploy-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.deploy-webhook.rule=Host(`deploy.localhost`)"
+      - "traefik.http.services.deploy-webhook.loadbalancer.server.port=9000"
+
+  # Development service with hot reload
+  deploy-webhook-dev:
+    build: 
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: deploy-webhook-dev
+    ports:
+      - "${DEV_PORT:-9001}:9000"
+    volumes:
+      - ${DOCKER_SOCK_PATH:-/var/run/docker.sock}:${DOCKER_SOCK_PATH:-/var/run/docker.sock}
+      - .:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - PORT=9000
+      - WEBHOOK_SECRET=${WEBHOOK_SECRET}
+      - DEFAULT_CONTAINER_NAME=${DEFAULT_CONTAINER_NAME:-morphicai-app-shell}
+      - IMAGE_NAME=${IMAGE_NAME}
+      - IMAGE_NAME_WHITELIST=${IMAGE_NAME_WHITELIST}
+      - REGISTRY_HOST=${REGISTRY_HOST}
+      - HOST_PORT=${HOST_PORT}
+      - CONTAINER_PORT=${CONTAINER_PORT}
+      - DOCKER_RUN_OPTS=${DOCKER_RUN_OPTS}
+      - UPDATE_SCRIPT_PATH=./scripts/deploy.sh
+      - DOCKER_USERNAME=${DOCKER_USERNAME}
+      - DOCKER_PASSWORD=${DOCKER_PASSWORD}
+      - DOCKER_SOCK_PATH=${DOCKER_SOCK_PATH:-/var/run/docker.sock}
+      - CALLBACK_URL=${CALLBACK_URL}
+      - CALLBACK_HEADERS=${CALLBACK_HEADERS}
+      - CALLBACK_SECRET=${CALLBACK_SECRET}
+      - PRUNE_IMAGES=${PRUNE_IMAGES}
+      - PRUNE_STRATEGY=${PRUNE_STRATEGY}
+    command: npm run dev
+    profiles:
+      - dev
+    networks:
+      - deploy-network
+
+networks:
+  deploy-network:
+    driver: bridge
+
+volumes:
+  logs:

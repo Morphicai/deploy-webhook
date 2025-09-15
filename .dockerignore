@@ -1,0 +1,28 @@
+# Node dependencies
+node_modules
+npm-debug.log
+
+# Docker files
+Dockerfile
+Dockerfile.dev
+.dockerignore
+
+# Git
+.git
+.gitignore
+
+# Environment
+.env
+.env.*
+
+# Logs and coverage
+logs
+*.log
+.nyc_output
+coverage
+
+# OS
+.DS_Store
+
+# Build output (built inside container)
+dist
