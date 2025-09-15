@@ -103,15 +103,4 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Update Docker Hub README
-        if: ${{ github.event_name != 'pull_request' && secrets.DOCKERHUB_USERNAME && secrets.DOCKERHUB_TOKEN }}
-        continue-on-error: true
-        uses: peter-evans/dockerhub-description@v4
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-          repository: focusbe/deploy-webhook
-          readme-filepath: README.md
-          short-description: ${{ github.event.repository.description }}
-
 

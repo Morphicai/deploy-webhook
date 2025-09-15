@@ -60,7 +60,6 @@ curl -X POST http://<host>:9000/deploy \
 |--------|------|--------|
 | `PORT` | 服务监听端口 | `9000` |
 | `WEBHOOK_SECRET` | Webhook安全密钥 | - |
-| `DEFAULT_CONTAINER_NAME` | 默认容器名称 | `morphicai-app-shell` |
 | `REGISTRY_HOST` | 镜像仓库地址（例如 `docker.io`, `registry.example.com`） | - |
 | `DOCKER_SOCK_PATH` | Docker socket 路径（容器与宿主需一致挂载） | `/var/run/docker.sock` |
 | `DOCKER_USERNAME` | 镜像仓库用户名（可选） | - |

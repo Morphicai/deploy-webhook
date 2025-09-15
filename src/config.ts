@@ -26,7 +26,6 @@ function parseHeadersEnv(raw?: string): Record<string, string> {
 export const deployConfig: DeployConfig = {
   port: parseInt(process.env.PORT || '9000', 10),
   webhookSecret: process.env.WEBHOOK_SECRET || '',
-  defaultContainerName: process.env.DEFAULT_CONTAINER_NAME || 'morphicai-app-shell',
   imageName: process.env.IMAGE_NAME || 'focusbe/morphicai-app-shell',
   registryHost: process.env.REGISTRY_HOST || 'registry.cn-hangzhou.aliyuncs.com',
   hostPort: process.env.HOST_PORT || '8806',

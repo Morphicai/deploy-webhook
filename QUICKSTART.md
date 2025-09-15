@@ -123,7 +123,6 @@ docker logs deploy-webhook -f
 |------|------|--------|------|
 | `WEBHOOK_SECRET` | ✅ | - | Webhook 安全密钥 |
 | `PORT` | ❌ | 9000 | 服务端口 |
-| `DEFAULT_CONTAINER_NAME` | ❌ | morphicai-app-shell | 默认容器名 |
 | `HOST_PORT` | ❌ | 8806 | 宿主机端口 |
 | `DOCKER_USERNAME` | ❌ | - | Docker 仓库用户名 |
 | `DOCKER_PASSWORD` | ❌ | - | Docker 仓库密码 |

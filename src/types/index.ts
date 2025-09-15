@@ -27,7 +27,6 @@ export interface HealthResponse {
 export interface DeployConfig {
   port: number;
   webhookSecret: string;
-  defaultContainerName: string;
   imageName: string;
   registryHost: string;
   hostPort: string;
