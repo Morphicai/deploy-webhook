@@ -62,6 +62,9 @@ curl -X POST http://<host>:9000/deploy \
 | `WEBHOOK_SECRET` | Webhook安全密钥 | - |
 | `REGISTRY_HOST` | 镜像仓库地址（例如 `docker.io`, `registry.example.com`） | - |
 | `DOCKER_SOCK_PATH` | Docker socket 路径（容器与宿主需一致挂载） | `/var/run/docker.sock` |
+| `DOCKER_HOST` | Docker API 端点（优先级高于 socket）例：`tcp://host:2375`、`tcp://host:2376`、`unix:///var/run/docker.sock` | - |
+| `DOCKER_TLS_VERIFY` | 是否启用 TLS（`1`/`true` 开启，匹配 2376 端口） | - |
+| `DOCKER_CERT_PATH` | TLS 证书目录（包含 `ca.pem`、`cert.pem`、`key.pem`） | - |
 | `DOCKER_USERNAME` | 镜像仓库用户名（可选） | - |
 | `DOCKER_PASSWORD` | 镜像仓库密码（可选） | - |
 | `IMAGE_NAME_WHITELIST` | 允许部署的 `repo` 白名单（逗号分隔） | - |
@@ -71,13 +74,31 @@ curl -X POST http://<host>:9000/deploy \
 | `CALLBACK_HEADERS` | 回调附加请求头（JSON 或 `k=v;h=v2`） | - |
 | `CALLBACK_SECRET` | 回调签名密钥（HMAC-SHA256） | - |
 
-### Docker Socket挂载
+### 连接方式
+
+#### 1) 本地 Socket（默认）
 
 为了让容器能够管理宿主机的Docker，需要挂载Docker socket：
 
 ```bash
 -v /var/run/docker.sock:/var/run/docker.sock
 ```
+
+#### 2) 远程 Docker API（DOCKER_HOST/TLS）
+
+无需挂载 socket，通过 TCP 连接 Docker 守护进程：
+
+```bash
+# 不加密（仅限内网/开发，生产不建议）
+export DOCKER_HOST=tcp://docker.example.com:2375
+
+# TLS（生产推荐）
+export DOCKER_HOST=tcp://docker.example.com:2376
+export DOCKER_TLS_VERIFY=1
+export DOCKER_CERT_PATH=/path/to/certs  # 包含 ca.pem cert.pem key.pem
+```
+
+Docker Desktop（Mac/Windows）也可在设置中启用 “Expose daemon on tcp://localhost:2375 without TLS”（仅开发使用）。
 
 ## API
 

@@ -1,4 +1,6 @@
 import Docker from 'dockerode';
+import fs from 'fs';
+import path from 'path';
 import crypto from 'crypto';
 import { DeployRequest, DeployResponse } from '../types';
 import { deployConfig } from '../config';
@@ -39,7 +41,53 @@ export class DeployService {
   private docker: Docker;
 
   constructor() {
-    this.docker = new Docker({ socketPath: deployConfig.dockerSockPath });
+    this.docker = new Docker(this.buildDockerOptions());
+  }
+
+  private buildDockerOptions(): Docker.DockerOptions {
+    const dockerHost = deployConfig.dockerHost?.trim();
+    if (!dockerHost) {
+      return { socketPath: deployConfig.dockerSockPath } as Docker.DockerOptions;
+    }
+
+    try {
+      // Support DOCKER_HOST formats: tcp://host:port, unix:///path
+      const url = new URL(dockerHost);
+      if (url.protocol === 'unix:') {
+        return { socketPath: url.pathname } as Docker.DockerOptions;
+      }
+
+      if (url.protocol !== 'tcp:') {
+        throw new Error(`Unsupported DOCKER_HOST protocol: ${url.protocol}`);
+      }
+
+      const host = url.hostname;
+      const port = url.port ? Number(url.port) : (deployConfig.dockerTlsVerify ? 2376 : 2375);
+      const useTls = !!deployConfig.dockerTlsVerify;
+
+      if (!useTls) {
+        return { host, port, protocol: 'http' } as Docker.DockerOptions;
+      }
+
+      const certDir = (deployConfig.dockerCertPath || '').trim();
+      const caPath = certDir ? path.join(certDir, 'ca.pem') : '';
+      const certPath = certDir ? path.join(certDir, 'cert.pem') : '';
+      const keyPath = certDir ? path.join(certDir, 'key.pem') : '';
+
+      const options: Docker.DockerOptions = { host, port, protocol: 'https' } as Docker.DockerOptions;
+
+      // Load certificates if present (typical for dockerd --tlsverify)
+      if (certDir) {
+        if (fs.existsSync(caPath)) (options as any).ca = fs.readFileSync(caPath);
+        if (fs.existsSync(certPath)) (options as any).cert = fs.readFileSync(certPath);
+        if (fs.existsSync(keyPath)) (options as any).key = fs.readFileSync(keyPath);
+      }
+
+      return options;
+    } catch (e) {
+      // If DOCKER_HOST cannot be parsed, fallback to socket
+      return { socketPath: deployConfig.dockerSockPath } as Docker.DockerOptions;
+    }
   }
 
   private generateDeploymentId(): string {

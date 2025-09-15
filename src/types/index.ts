@@ -34,6 +34,9 @@ export interface DeployConfig {
   dockerRunOpts: string;
   updateScriptPath: string;
   dockerSockPath: string;
+  dockerHost?: string;
+  dockerTlsVerify?: boolean;
+  dockerCertPath?: string;
   imageNameWhitelist: string[];
   dockerUsername?: string;
   dockerPassword?: string;
