@@ -103,4 +103,13 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Sync Docker Hub README
+        if: ${{ github.event_name != 'pull_request' }}
+        uses: peter-evans/dockerhub-description@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: focusbe/deploy-webhook
+          short-description: ${{ github.event.repository.description }}
+
 
