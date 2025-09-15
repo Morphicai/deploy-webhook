@@ -103,13 +103,56 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Sync Docker Hub README
+      - name: Sync Docker Hub README (curl with logs)
         if: ${{ github.event_name != 'pull_request' }}
-        uses: peter-evans/dockerhub-description@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-          repository: focusbe/deploy-webhook
-          short-description: ${{ github.event.repository.description }}
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          REPO: focusbe/deploy-webhook
+          README_PATH: README.md
+        run: |
+          set -euo pipefail
+          echo "Reading description source from ${README_PATH}"
+          if [ ! -f "${README_PATH}" ]; then
+            echo "::error::README not found at ${README_PATH}"
+            exit 1
+          fi
+          if ! command -v jq >/dev/null 2>&1; then
+            echo "jq not found, installing..."
+            sudo apt-get update -y && sudo apt-get install -y jq
+          fi
+          echo "README bytes: $(wc -c < "${README_PATH}")"
+          DESC_JSON=$(jq -Rs . < "${README_PATH}")
+          echo "Acquiring Docker Hub JWT"
+          LOGIN_RESP=$(curl -fsS -X POST https://hub.docker.com/v2/users/login/ \
+            -H "Content-Type: application/json" \
+            -d "{\"username\":\"${DOCKERHUB_USERNAME}\",\"password\":\"${DOCKERHUB_TOKEN}\"}" || true)
+          if [ -z "${LOGIN_RESP}" ]; then
+            echo "::error::Login failed: empty response"
+            exit 1
+          fi
+          TOKEN=$(echo "${LOGIN_RESP}" | jq -r '.token // empty')
+          if [ -z "${TOKEN}" ]; then
+            echo "::error::Login failed, response:"
+            echo "${LOGIN_RESP}"
+            exit 1
+          fi
+          echo "Token acquired (length: ${#TOKEN})"
+          echo "Sending PATCH to update full_description for ${REPO}"
+          RESP_FILE=$(mktemp)
+          HTTP_CODE=$(curl -sS -o "${RESP_FILE}" -w "%{http_code}" -X PATCH "https://hub.docker.com/v2/repositories/${REPO}/" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: JWT ${TOKEN}" \
+            --data "{\"full_description\": ${DESC_JSON}}")
+          echo "HTTP ${HTTP_CODE}"
+          echo "Response body:"
+          cat "${RESP_FILE}" || true
+          if [ "${HTTP_CODE}" -ge 200 ] && [ "${HTTP_CODE}" -lt 300 ]; then
+            echo "Docker Hub description synced successfully."
+          else
+            echo "::error::Failed to sync description"
+            exit 1
+          fi
+          rm -f "${RESP_FILE}"
 
 
