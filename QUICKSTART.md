@@ -1,87 +1,46 @@
-# 快速开始指南
+# 快速开始（使用已发布镜像）
 
 ## 🚀 5分钟快速部署
 
-### 1. 环境准备
+### 1. 启动容器
 ```bash
-# 复制环境变量模板
-cp .env.template .env
-
-# 编辑配置（必须设置WEBHOOK_SECRET）
-vim .env
+docker run -d --name deploy-webhook -p 9000:9000 \
+  -e WEBHOOK_SECRET=your-secret \
+  -e REGISTRY_HOST=registry.example.com \
+  -e DOCKER_SOCK_PATH=/var/run/docker.sock \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  focusbe/deploy-webhook:latest
 ```
 
-### 2. 启动服务
-
-#### 方式一：使用 Make（推荐）
+### 2. 验证健康
 ```bash
-# 初始化项目
-make setup
-
-# 开发模式启动
-make dev
-
-# 生产模式启动
-make prod
-```
-
-#### 方式二：使用脚本
-```bash
-# 开发模式
-./scripts/start.sh -m development
-
-# 生产模式（后台运行）
-./scripts/start.sh -m production -d
-```
-
-#### 方式三：直接使用 Docker Compose
-```bash
-# 生产环境
-docker-compose up -d
-
-# 开发环境
-docker-compose --profile dev up -d
-```
-
-### 3. 验证服务
-
-```bash
-# 健康检查
-make test-health
-# 或者
 curl http://localhost:9000/health
-
-# 测试部署（替换YOUR_SECRET）
-make test-deploy SECRET=YOUR_SECRET
 ```
 
-## 🔧 常用命令
-
+### 3. 触发部署（CI 示例）
 ```bash
-# 查看服务状态
-make status
-
-# 查看日志
-make logs
-
-# 停止服务
-make stop
-
-# 重启服务
-make restart
-
-# 清理资源
-make clean
+curl -X POST http://<host>:9000/deploy \
+  -H "Content-Type: application/json" \
+  -H "x-webhook-secret: your-secret" \
+  -d '{
+    "name": "my-app",
+    "repo": "org/app",
+    "version": "1.2.3",
+    "port": 8080,
+    "containerPort": 3000
+  }'
 ```
 
-## 🐳 Docker 镜像构建
+## 🔧 进阶配置（可选）
+
+- IMAGE_NAME_WHITELIST：限制可部署的 repo 列表（逗号分隔）
+- PRUNE_IMAGES=true / PRUNE_STRATEGY=dangling：启用部署后清理 dangling images
+- CALLBACK_URL / CALLBACK_HEADERS / CALLBACK_SECRET：开启回调与签名
+
+## 🐳 本地构建（可选）
 
 ```bash
-# 构建本地镜像
-make build-docker
-
-# 构建并推送到仓库（需要设置REGISTRY环境变量）
-REGISTRY=your-registry.com make build-docker-push
+docker build -t focusbe/deploy-webhook:dev .
 ```
 
 ## 📡 API 使用示例
@@ -176,3 +135,9 @@ docker logs deploy-webhook -f
 3. **定期备份配置**
 4. **使用容器编排工具**（如 Kubernetes）
 5. **实施日志管理**
+
+## 路线图（Kubernetes）
+
+- 即将支持以 Kubernetes 为目标平台的部署 Provider：在不改变 `/deploy` 请求协议的前提下，通过环境变量切换至 `K8sProvider`。
+- 计划提供 Deployment/Service 生成与滚动更新、健康检查探针、命名空间隔离、HPA 支持等能力。
+- 将提供 Helm Chart 与示例 YAML，方便集群内或外部 CI 使用。
