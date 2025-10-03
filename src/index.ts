@@ -10,7 +10,9 @@ const deployService = new DeployService();
 
 // Middleware
 app.use(express.json());
-app.use(morgan('combined'));
+app.use(morgan('combined', {
+  skip: (req) => req.url === '/health'  // 跳过健康检查端点的日志
+}));
 
 // Health check endpoint
 app.get('/health', (_req: Request, res: Response<HealthResponse>) => {
