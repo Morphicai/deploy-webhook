@@ -4,6 +4,7 @@ import path from 'path';
 import crypto from 'crypto';
 import { DeployRequest, DeployResponse } from '../types';
 import { deployConfig } from '../config';
+import { buildErrorResponse } from '../utils/errors';
 import https from 'https';
 import http from 'http';
 
@@ -42,6 +43,25 @@ export class DeployService {
 
   constructor() {
     this.docker = new Docker(this.buildDockerOptions());
+  }
+
+  private log(message: string, meta?: Record<string, unknown>): void {
+    const suffix = meta ? ` ${this.safeStringify(meta)}` : '';
+    console.log(`[deploy-webhook] ${message}${suffix}`);
+  }
+
+  private logError(message: string, error: unknown, meta?: Record<string, unknown>): void {
+    const suffix = meta ? ` ${this.safeStringify(meta)}` : '';
+    const description = error instanceof Error ? `${error.message}\n${error.stack || ''}` : String(error);
+    console.error(`[deploy-webhook] ${message}${suffix}\n${description}`);
+  }
+
+  private safeStringify(meta: Record<string, unknown>): string {
+    try {
+      return JSON.stringify(meta);
+    } catch {
+      return '[unserializable-meta]';
+    }
   }
 
   private buildDockerOptions(): Docker.DockerOptions {
@@ -151,7 +171,11 @@ export class DeployService {
     const fullImage = `${deployConfig.registryHost}/${repo}:${version}`;
 
     try {
+      this.log('Starting deployment', { deploymentId, name, repo, version, port, containerPort });
+      this.log('Pulling image', { fullImage });
       await this.pullImage(fullImage);
+      this.log('Image pull completed', { fullImage });
+      this.log('Stopping and removing existing container if present', { name });
       await this.stopAndRemoveContainer(name);
 
       const createOptions: Docker.ContainerCreateOptions = {
@@ -164,16 +188,20 @@ export class DeployService {
         ExposedPorts: { [`${containerPort}/tcp`]: {} },
       };
 
+      this.log('Creating container', { name, fullImage });
       const container = await this.docker.createContainer(createOptions);
+      this.log('Starting container', { name });
       await container.start();
 
       await this.pruneImagesIfNeeded();
 
       const result: DeployResponse = { success: true, code: 0, stdout: `deploymentId=${deploymentId}`, stderr: '', deploymentId };
+      this.log('Deployment completed', { deploymentId, name });
       await this.sendCallback({ ...result, startedAt, finishedAt: new Date().toISOString(), params: { name, repo, version, port, containerPort } });
       return result;
     } catch (error: any) {
-      const fail: DeployResponse = { success: false, error: error?.message || String(error), stderr: error?.stack || String(error), deploymentId };
+      this.logError('Deployment failed', error, { deploymentId, name, repo, version });
+      const fail: DeployResponse = buildErrorResponse(error, { deploymentId });
       await this.sendCallback({ ...fail, startedAt, finishedAt: new Date().toISOString(), params: { name, repo, version, port, containerPort } });
       return fail;
     }

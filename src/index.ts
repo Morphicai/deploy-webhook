@@ -3,6 +3,7 @@ import morgan from 'morgan';
 import { deployConfig } from './config';
 import { validateSecret, validateDeployPayload } from './utils/validation';
 import { DeployService } from './services/deployService';
+import { buildErrorResponse } from './utils/errors';
 import { DeployRequest, HealthResponse } from './types';
 
 const app = express();
@@ -27,7 +28,7 @@ app.get('/health', (_req: Request, res: Response<HealthResponse>) => {
 app.post('/deploy', async (req: Request<{}, any, DeployRequest>, res: Response) => {
   try {
     if (!validateSecret(req)) {
-      return res.status(401).json({ success: false, error: 'Unauthorized: Invalid webhook secret' });
+      return res.status(401).json({ success: false, code: 401, error: 'Unauthorized: Invalid webhook secret' });
     }
 
     const payload: DeployRequest = {
@@ -40,14 +41,23 @@ app.post('/deploy', async (req: Request<{}, any, DeployRequest>, res: Response) 
 
     const valid = validateDeployPayload(payload);
     if (!valid.ok) {
-      return res.status(400).json({ success: false, error: valid.error });
+      return res.status(400).json({ success: false, code: 400, error: valid.error });
     }
 
     const result = await deployService.deploy(payload);
-    res.status(result.success ? 200 : 500).json(result);
+    res.status(result.success ? 200 : (result.code ?? 500)).json(result);
   } catch (error) {
-    res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Unknown error' });
+    const fail = buildErrorResponse(error);
+    const status = fail.code && fail.code >= 400 && fail.code < 600 ? fail.code : 500;
+    res.status(status).json(fail);
   }
+});
+
+// Global error handler to ensure consistent JSON responses
+app.use((err: unknown, _req: Request, res: Response) => {
+  const fail = buildErrorResponse(err);
+  const status = fail.code && fail.code >= 400 && fail.code < 600 ? fail.code : 500;
+  res.status(status).json(fail);
 });
 
 // Start server
