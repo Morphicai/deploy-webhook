@@ -145,6 +145,20 @@ Docker Desktop（Mac/Windows）也可在设置中启用 “Expose daemon on tcp:
 }
 ```
 
+### Swagger 文档
+
+新增 `/docs` 路径用于查看自动生成的 Swagger UI（交互式调试），以及 `/docs.json` 获取原始文档 JSON。默认扫描 `src/**/*.ts` 中的 OpenAPI 注释自动生成。
+
+访问方式：
+
+```bash
+npm run dev
+# 浏览器打开 http://localhost:9000/docs 查看界面
+# 或使用 curl http://localhost:9000/docs.json 获取 JSON
+```
+
+若部署在服务器上，请将 `localhost:9000` 替换为实际的域名或 IP。
+
 ## 开发与构建
 
 我们已提供官方镜像。如需本地开发/构建：

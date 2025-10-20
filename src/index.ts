@@ -5,7 +5,9 @@ import { validateSecret, validateDeployPayload } from './utils/validation';
 import { DeployService } from './services/deployService';
 import { buildErrorResponse } from './utils/errors';
 import { DeployRequest, HealthResponse } from './types';
+import docsRouter from './routes/docs';
 import secretRouter from './routes/secrets';
+import { swaggerSpec } from './swagger';
 
 const app = express();
 const deployService = new DeployService();
@@ -18,7 +20,26 @@ app.use(morgan('combined', {
 
 // Admin API routes
 app.use('/api/secrets', secretRouter);
+app.use('/docs', docsRouter);
+app.get('/docs.json', (_req: Request, res: Response) => {
+  res.json(swaggerSpec);
+});
 
+/**
+ * @openapi
+ * /health:
+ *   get:
+ *     tags:
+ *       - Health
+ *     summary: Check service availability
+ *     responses:
+ *       '200':
+ *         description: Service is healthy
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/HealthResponse'
+ */
 // Health check endpoint
 app.get('/health', (_req: Request, res: Response<HealthResponse>) => {
   res.json({ 
@@ -28,6 +49,35 @@ app.get('/health', (_req: Request, res: Response<HealthResponse>) => {
   });
 });
 
+/**
+ * @openapi
+ * /deploy:
+ *   post:
+ *     tags:
+ *       - Deployments
+ *     summary: Trigger a deployment for the specified image
+ *     security:
+ *       - WebhookSecret: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/DeployRequest'
+ *     responses:
+ *       '200':
+ *         description: Deployment succeeded
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/DeployResponse'
+ *       '400':
+ *         description: Invalid request payload
+ *       '401':
+ *         description: Missing or invalid webhook secret
+ *       '500':
+ *         description: Internal error during deployment
+ */
 // Deploy endpoint
 app.post('/deploy', async (req: Request<{}, any, DeployRequest>, res: Response) => {
   try {
