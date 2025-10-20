@@ -6,6 +6,7 @@ import { DeployService } from './services/deployService';
 import { buildErrorResponse } from './utils/errors';
 import { DeployRequest, HealthResponse } from './types';
 import docsRouter from './routes/docs';
+import envRouter from './routes/env';
 import secretRouter from './routes/secrets';
 import { swaggerSpec } from './swagger';
 
@@ -20,6 +21,7 @@ app.use(morgan('combined', {
 
 // Admin API routes
 app.use('/api/secrets', secretRouter);
+app.use('/api/env', envRouter);
 app.use('/docs', docsRouter);
 app.get('/docs.json', (_req: Request, res: Response) => {
   res.json(swaggerSpec);
@@ -91,6 +93,7 @@ app.post('/deploy', async (req: Request<{}, any, DeployRequest>, res: Response) 
       repo: req.body?.repo,
       port: req.body?.port,
       containerPort: req.body?.containerPort,
+      env: req.body?.env,
     };
 
     const valid = validateDeployPayload(payload);

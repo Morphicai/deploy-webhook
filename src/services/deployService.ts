@@ -7,6 +7,8 @@ import { deployConfig } from '../config';
 import { buildErrorResponse } from '../utils/errors';
 import https from 'https';
 import http from 'http';
+import { buildEnvironmentForProject } from './envStore';
+import { upsertApplication } from './applicationStore';
 
 function postJson(urlString: string, body: unknown, headers: Record<string, string> = {}): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -178,9 +180,19 @@ export class DeployService {
       this.log('Stopping and removing existing container if present', { name });
       await this.stopAndRemoveContainer(name);
 
+      const envFromStore = buildEnvironmentForProject(name);
+      const mergedEnv: Record<string, string> = { ...envFromStore };
+      if (params.env) {
+        for (const [key, value] of Object.entries(params.env)) {
+          mergedEnv[key] = String(value);
+        }
+      }
+      const envArray = Object.entries(mergedEnv).map(([key, value]) => `${key}=${value}`);
+
       const createOptions: Docker.ContainerCreateOptions = {
         name,
         Image: fullImage,
+        Env: envArray.length ? envArray : undefined,
         HostConfig: {
           RestartPolicy: { Name: 'unless-stopped' },
           PortBindings: { [`${containerPort}/tcp`]: [{ HostPort: String(port) }] },
@@ -192,6 +204,8 @@ export class DeployService {
       const container = await this.docker.createContainer(createOptions);
       this.log('Starting container', { name });
       await container.start();
+
+      upsertApplication({ name, repo, version, port, containerPort });
 
       await this.pruneImagesIfNeeded();
 

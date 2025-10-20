@@ -51,6 +51,37 @@ function ensureDatabase(): Database.Database {
     BEGIN
       UPDATE secrets SET updated_at = datetime('now') WHERE id = NEW.id;
     END;
+    CREATE TABLE IF NOT EXISTS environment_variables (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      scope TEXT NOT NULL CHECK(scope IN ('global', 'project')),
+      project_name TEXT NOT NULL DEFAULT '',
+      key TEXT NOT NULL,
+      value TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(scope, project_name, key)
+    );
+    CREATE TRIGGER IF NOT EXISTS environment_variables_updated_at
+    AFTER UPDATE ON environment_variables
+    BEGIN
+      UPDATE environment_variables SET updated_at = datetime('now') WHERE id = NEW.id;
+    END;
+    CREATE TABLE IF NOT EXISTS applications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE,
+      repo TEXT NOT NULL,
+      version TEXT NOT NULL,
+      port INTEGER NOT NULL,
+      container_port INTEGER NOT NULL,
+      last_deployed_at TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE TRIGGER IF NOT EXISTS applications_updated_at
+    AFTER UPDATE ON applications
+    BEGIN
+      UPDATE applications SET updated_at = datetime('now') WHERE id = NEW.id;
+    END;
   `);
 
   return db;
