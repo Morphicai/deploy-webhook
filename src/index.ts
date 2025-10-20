@@ -1,10 +1,11 @@
-import express, { Request, Response } from 'express';
+import express, { NextFunction, Request, Response } from 'express';
 import morgan from 'morgan';
 import { deployConfig } from './config';
 import { validateSecret, validateDeployPayload } from './utils/validation';
 import { DeployService } from './services/deployService';
 import { buildErrorResponse } from './utils/errors';
 import { DeployRequest, HealthResponse } from './types';
+import secretRouter from './routes/secrets';
 
 const app = express();
 const deployService = new DeployService();
@@ -14,6 +15,9 @@ app.use(express.json());
 app.use(morgan('combined', {
   skip: (req) => req.url === '/health'  // 跳过健康检查端点的日志
 }));
+
+// Admin API routes
+app.use('/api/secrets', secretRouter);
 
 // Health check endpoint
 app.get('/health', (_req: Request, res: Response<HealthResponse>) => {
@@ -54,7 +58,7 @@ app.post('/deploy', async (req: Request<{}, any, DeployRequest>, res: Response) 
 });
 
 // Global error handler to ensure consistent JSON responses
-app.use((err: unknown, _req: Request, res: Response) => {
+app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
   const fail = buildErrorResponse(err);
   const status = fail.code && fail.code >= 400 && fail.code < 600 ? fail.code : 500;
   res.status(status).json(fail);

@@ -152,6 +152,7 @@ Health check endpoint.
 The official image is ready to use, but for local development/build:
 
 ```bash
+cp .env.example .env  # copy env template on first run
 npm ci && npm run build
 docker build -t focusbe/deploy-webhook:dev .
 ```

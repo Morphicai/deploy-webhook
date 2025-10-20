@@ -150,6 +150,7 @@ Docker Desktop（Mac/Windows）也可在设置中启用 “Expose daemon on tcp:
 我们已提供官方镜像。如需本地开发/构建：
 
 ```bash
+cp .env.example .env  # 首次使用时复制示例环境变量
 npm ci && npm run build
 docker build -t focusbe/deploy-webhook:dev .
 ```

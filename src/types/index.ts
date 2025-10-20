@@ -7,6 +7,8 @@ export interface DeployRequest {
   port?: string | number;
   containerPort?: string | number;
   secret?: string;
+  env?: Record<string, string | number | boolean>;
+  secretRefs?: string[];
 }
 
 export interface DeployResponse {
