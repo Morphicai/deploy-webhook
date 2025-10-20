@@ -2,7 +2,9 @@
 
 轻量级的部署 Webhook 服务，支持通过 HTTP 请求在宿主机上拉起指定 Docker 镜像版本（停止并替换同名容器），可选回调通知与镜像清理。已发布 Docker 镜像，开箱即用。
 
-Docker Hub: https://hub.docker.com/r/focusbe/deploy-webhook
+GitHub: https://github.com/Morphicai/deploy-webhook
+
+Docker Hub: https://hub.docker.com/repository/docker/focusbe/deploy-webhook/general
 
 ```bash
 docker pull focusbe/deploy-webhook:latest
@@ -10,13 +12,19 @@ docker pull focusbe/deploy-webhook:latest
 
 ## 特性
 
-- 🐳 **镜像即用**：使用官方镜像一条命令即可启动
 - 🔧 **宿主机 Docker 管理**：通过 Docker socket 操作宿主机容器
 - 🔒 **安全认证**：Webhook 密钥校验 + 可选镜像白名单
 - 🚀 **快速部署**：指定 name/repo/version/port/containerPort 即可
 - 📣 **回调通知**：可选异步回调部署结果
 - 🧹 **镜像清理**：可选清理 dangling images
 - 📝 **TypeScript**：清晰的类型与结构化实现
+
+## 原理说明
+
+1. Webhook 接收端：通过 `/deploy` 接口接收带签名的 JSON 请求，先校验 `WEBHOOK_SECRET` 与参数完整性。
+2. Docker 操作层：基于 Docker API（unix socket 或远程 API）拉取镜像、停止并移除同名容器，再创建并启动新容器。
+3. 状态反馈：部署结果以统一的 JSON 返回，若配置回调则将结果异步推送到 `CALLBACK_URL`，并支持 HMAC 签名。
+4. 清理流程：可选地在部署完成后触发镜像清理策略，维护宿主机资源使用。
 
 ## 快速开始（使用发布镜像）
 
@@ -25,10 +33,8 @@ docker pull focusbe/deploy-webhook:latest
 ```bash
 docker run -d --name deploy-webhook -p 9000:9000 \
   -e WEBHOOK_SECRET=your-secret \
-  -e REGISTRY_HOST=registry.example.com \
+  -e REGISTRY_HOST=docker.io \
   -e DOCKER_SOCK_PATH=/var/run/docker.sock \
-  -e IMAGE_NAME_WHITELIST="org/app1,org/app2" \
-  -e PRUNE_IMAGES=true -e PRUNE_STRATEGY=dangling \
   -v /var/run/docker.sock:/var/run/docker.sock \
   focusbe/deploy-webhook:latest
 ```
@@ -186,6 +192,14 @@ docker-compose --profile dev down
 3. **网络访问**: 建议在防火墙后运行，或使用反向代理
 4. **镜像仓库**: 使用私有仓库时，确保凭据安全存储
 
+## 最佳实践
+
+1. 使用只读配置文件与环境变量分离敏感信息，建议结合 Secret 管理工具。
+2. CI/CD 中触发部署时加上幂等检测（如版本哈希），避免重复部署。
+3. 结合反向代理限制来源 IP，必要时启用双因子校验或附加签名头。
+4. 为回调服务设置重试与告警机制，确保部署状态可追踪。
+5. 定期巡检宿主机资源（磁盘、网络、端口占用），并通过监控采集部署日志。
+
 ## 故障排除
 
 ### 常见问题
@@ -226,8 +240,8 @@ docker logs deploy-webhook
 ## Roadmap / Kubernetes 支持
 
 - 我们正在规划提供可插拔“部署提供器（Provider）”抽象：
-  - 现有 `DockerProvider`（通过 Docker socket 部署）
-  - 即将到来的 `K8sProvider`（通过 Kubernetes API/集群内权限部署）
+- 现有 `DockerProvider`（通过 Docker socket 部署）
+- 即将到来的 `K8sProvider`（通过 Kubernetes API/集群内权限部署）
 - 目标：保持 `/deploy` 请求协议不变（仍只需 name/repo/version/port/containerPort），通过环境变量选择 Provider 与目标平台。
 - 计划能力：
   - 生成/应用 Deployment、Service 等资源，原生滚动升级与探针支持

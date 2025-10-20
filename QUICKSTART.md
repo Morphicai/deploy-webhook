@@ -1,12 +1,16 @@
 # 快速开始（使用已发布镜像）
 
+GitHub: https://github.com/Morphicai/deploy-webhook
+
+Docker Hub: https://hub.docker.com/repository/docker/focusbe/deploy-webhook/general
+
 ## 🚀 5分钟快速部署
 
 ### 1. 启动容器
 ```bash
 docker run -d --name deploy-webhook -p 9000:9000 \
   -e WEBHOOK_SECRET=your-secret \
-  -e REGISTRY_HOST=registry.example.com \
+  -e REGISTRY_HOST=docker.io \
   -e DOCKER_SOCK_PATH=/var/run/docker.sock \
   -v /var/run/docker.sock:/var/run/docker.sock \
   focusbe/deploy-webhook:latest
@@ -34,7 +38,6 @@ curl -X POST http://<host>:9000/deploy \
 ## 🔧 进阶配置（可选）
 
 - IMAGE_NAME_WHITELIST：限制可部署的 repo 列表（逗号分隔）
-- PRUNE_IMAGES=true / PRUNE_STRATEGY=dangling：启用部署后清理 dangling images
 - CALLBACK_URL / CALLBACK_HEADERS / CALLBACK_SECRET：开启回调与签名
 
 ## 🐳 本地构建（可选）
