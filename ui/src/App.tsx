@@ -10,6 +10,7 @@ import LoginPage from './pages/LoginPage'
 import ProtectedRoute from './components/ProtectedRoute'
 import AuthenticatedLayout from './layouts/AuthenticatedLayout'
 import SetupOverlay from './components/SetupOverlay'
+import { Toaster } from '@/components/ui/sonner'
 import { useTheme } from './store/useTheme'
 import { useSetupState } from './store/useSetupState'
 import api from './api/client'
@@ -78,6 +79,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
       {needsSetup && <SetupOverlay onCompleted={() => setNeedsSetup(false)} />}
+      <Toaster richColors />
       <ReactQueryDevtools initialIsOpen={false} />
     </QueryClientProvider>
   )

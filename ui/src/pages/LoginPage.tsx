@@ -1,8 +1,14 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { useState } from 'react'
-import api from '../api/client'
-import { useAuthToken, useAuthEmail } from '../hooks/useAuth'
+import { Mail, Lock, Loader2, Zap, AlertCircle } from 'lucide-react'
+import api from '@/api/client'
+import { useAuthToken, useAuthEmail } from '@/hooks/useAuth'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Button } from '@/components/ui/button'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 
 export default function LoginPage() {
   const navigate = useNavigate()
@@ -23,8 +29,9 @@ export default function LoginPage() {
       queryClient.clear()
       navigate('/')
     },
-    onError: (err: any) => {
-      setError(err?.response?.data?.error || '登录失败')
+    onError: (err: unknown) => {
+      const error = err as { response?: { data?: { error?: string } } }
+      setError(error?.response?.data?.error || '登录失败')
     },
   })
 
@@ -35,47 +42,85 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background transition-colors duration-500 ease-in-out-soft dark:bg-background-deep">
-      <div className="pointer-events-none absolute inset-0 -z-10">
-        <div className="h-full w-full bg-[radial-gradient(circle_at_top,_rgba(150,96,255,0.16),_transparent_60%)] dark:bg-[radial-gradient(circle_at_center,_rgba(70,60,180,0.28),_transparent_65%)]" />
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4">
+      {/* 背景装饰 */}
+      <div className="pointer-events-none fixed inset-0 -z-10">
+        <div className="absolute left-1/4 top-0 h-96 w-96 rounded-full bg-primary/20 opacity-30 blur-3xl" />
+        <div className="absolute bottom-0 right-1/4 h-96 w-96 rounded-full bg-blue-500/20 opacity-30 blur-3xl" />
       </div>
-      <div className="w-full max-w-md space-y-6 rounded-3xl border border-border bg-surface/90 p-10 text-text-primary shadow-soft backdrop-blur dark:border-border-dark dark:bg-surface-darker/80 dark:text-text-dark">
-        <div className="space-y-2 text-center">
-          <h1 className="text-3xl font-semibold">管理员登录</h1>
-          <p className="text-sm text-text-secondary dark:text-text-softer">请使用管理员邮箱和密码访问控制台</p>
-        </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-text-secondary dark:text-text-softer">邮箱</label>
-            <input
-              type="email"
-              required
-              value={form.email}
-              onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-              className="w-full rounded-xl border border-border px-3 py-2.5 text-sm transition focus:border-brand-400 focus:outline-none dark:border-border-dark dark:bg-surface-dark dark:text-text-dark"
-              placeholder="admin@example.com"
-            />
+
+      {/* 登录卡片 */}
+      <Card className="w-full max-w-md animate-in fade-in slide-in-from-bottom-4 duration-500 backdrop-blur-sm bg-card/80">
+        <CardHeader className="space-y-4 text-center">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary shadow-lg">
+            <Zap className="h-7 w-7 text-primary-foreground" />
           </div>
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-text-secondary dark:text-text-softer">密码</label>
-            <input
-              type="password"
-              required
-              value={form.password}
-              onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-              className="w-full rounded-xl border border-border px-3 py-2.5 text-sm transition focus:border-brand-400 focus:outline-none dark:border-border-dark dark:bg-surface-dark dark:text-text-dark"
-              placeholder="至少 8 位"
-            />
+          <div>
+            <CardTitle className="text-2xl">Deploy Console</CardTitle>
+            <CardDescription>
+              请使用管理员邮箱和密码访问控制台
+            </CardDescription>
           </div>
-          {error && <p className="text-sm text-red-400">{error}</p>}
-          <button
-            type="submit"
-            className="w-full rounded-full bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-brand transition duration-200 ease-in-out-soft hover:bg-brand-400"
-          >
-            {loginMutation.isPending ? '登录中...' : '登录'}
-          </button>
-        </form>
-      </div>
+        </CardHeader>
+
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">邮箱</Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="email"
+                  type="email"
+                  required
+                  value={form.email}
+                  onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                  placeholder="admin@example.com"
+                  className="pl-10"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="password">密码</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="password"
+                  type="password"
+                  required
+                  value={form.password}
+                  onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                  placeholder="至少 8 位"
+                  className="pl-10"
+                />
+              </div>
+            </div>
+
+            {error && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+
+            <Button
+              type="submit"
+              disabled={loginMutation.isPending}
+              className="w-full gap-2"
+            >
+              {loginMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  登录中...
+                </>
+              ) : (
+                '登录'
+              )}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   )
 }

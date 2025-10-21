@@ -1,6 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
-import api from '../api/client'
+import api from '@/api/client'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 
 interface EnvEntry {
   id: number
@@ -68,114 +73,130 @@ export default function EnvironmentPage() {
   const tableRows = useMemo(() => data ?? [], [data])
 
   return (
-    <div className="space-y-8">
-      <header className="space-y-2">
-        <h2 className="text-2xl font-semibold text-text-primary dark:text-text-dark">环境变量</h2>
-        <p className="text-sm text-text-secondary dark:text-text-softer">管理全局与项目级环境变量</p>
-      </header>
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">环境变量</h2>
+          <p className="text-muted-foreground">管理全局与项目级环境变量</p>
+        </div>
+      </div>
 
       <div className="flex flex-wrap items-center gap-3">
         {tabs.map((tab) => (
-          <button
+          <Button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className={`rounded-full px-4 py-2 text-sm font-medium transition duration-200 ease-in-out-soft ${
-              activeTab === tab.key
-                ? 'bg-brand-500 text-white shadow-brand'
-                : 'border border-border text-text-secondary hover:bg-brand-100 hover:text-brand-700 dark:border-border-dark dark:text-text-softer dark:hover:bg-surface-darker/70 dark:hover:text-brand-300'
-            }`}
+            variant={activeTab === tab.key ? 'default' : 'outline'}
           >
             {tab.label}
-          </button>
+          </Button>
         ))}
         {activeTab === 'project' && (
-          <input
+          <Input
             placeholder="筛选项目"
             value={projectFilter}
             onChange={(e) => setProjectFilter(e.target.value)}
-            className="rounded-lg border border-border px-3 py-1.5 text-sm transition focus:border-brand-400 focus:outline-none dark:border-border-dark dark:bg-surface-dark dark:text-text-dark"
+            className="w-48"
           />
         )}
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-soft transition-colors duration-300 ease-in-out-soft dark:border-border-dark dark:bg-surface-darker/70">
-        <table className="w-full table-fixed border-collapse text-sm text-text-primary dark:text-text-dark">
-          <thead className="bg-surface-muted/80 text-left text-text-secondary dark:bg-surface-darker/60 dark:text-text-softer">
-            <tr>
-              <th className="w-32 px-4 py-3 text-xs font-semibold uppercase tracking-wide">作用域</th>
-              <th className="w-32 px-4 py-3 text-xs font-semibold uppercase tracking-wide">项目</th>
-              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide">键</th>
-              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide">值</th>
-              <th className="w-28 px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading && (
-              <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-text-secondary dark:text-text-softer">
-                  加载中...
-                </td>
-              </tr>
-            )}
-            {tableRows.map((entry) => (
-              <tr key={entry.id} className="border-b border-border last:border-none transition-colors duration-150 hover:bg-surface-subtle/50 dark:border-border-dark dark:hover:bg-surface-dark/60">
-                <td className="px-4 py-3 text-text-secondary dark:text-text-softer">{entry.scope === 'global' ? '全局' : '项目'}</td>
-                <td className="px-4 py-3 text-text-secondary dark:text-text-softer">{entry.scope === 'project' ? entry.projectName : '-'}</td>
-                <td className="px-4 py-3 font-medium text-text-primary dark:text-text-dark">{entry.key}</td>
-                <td className="px-4 py-3 text-text-secondary dark:text-text-softer">{entry.value}</td>
-                <td className="px-4 py-3 text-right">
-                  <button
-                    onClick={() => deleteMutation.mutate(entry)}
-                    className="rounded-full border border-red-300 px-3 py-1 text-xs font-semibold text-red-500 transition duration-200 ease-in-out-soft hover:bg-red-500/10 hover:text-red-400"
-                  >
-                    删除
-                  </button>
-                </td>
-              </tr>
-            ))}
-            {!isLoading && !tableRows.length && (
-              <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-text-secondary dark:text-text-softer">
-                  暂无数据
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>环境变量列表</CardTitle>
+          <CardDescription>查看和管理{activeTab === 'global' ? '全局' : '项目'}环境变量</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-32">作用域</TableHead>
+                  <TableHead className="w-48">项目</TableHead>
+                  <TableHead>键</TableHead>
+                  <TableHead>值</TableHead>
+                  <TableHead className="w-28 text-right">操作</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isLoading && (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center text-muted-foreground">
+                      加载中...
+                    </TableCell>
+                  </TableRow>
+                )}
+                {tableRows.map((entry) => (
+                  <TableRow key={entry.id}>
+                    <TableCell>
+                      <Badge variant={entry.scope === 'global' ? 'default' : 'secondary'}>
+                        {entry.scope === 'global' ? '全局' : '项目'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {entry.scope === 'project' ? entry.projectName : '-'}
+                    </TableCell>
+                    <TableCell className="font-semibold font-mono">{entry.key}</TableCell>
+                    <TableCell className="text-muted-foreground font-mono text-sm">{entry.value}</TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => deleteMutation.mutate(entry)}
+                      >
+                        删除
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {!isLoading && !tableRows.length && (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center text-muted-foreground">
+                      暂无数据
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
 
-      <div className="space-y-4 rounded-2xl border border-border bg-surface p-6 shadow-soft transition-colors duration-300 ease-in-out-soft dark:border-border-dark dark:bg-surface-darker/80">
-        <h3 className="text-sm font-semibold text-text-secondary dark:text-text-softer">新增 / 更新环境变量</h3>
-        <div className="flex flex-wrap gap-3">
-          {activeTab === 'project' && (
-            <input
-              placeholder="项目名"
-              value={form.projectName}
-              onChange={(e) => setForm((f) => ({ ...f, projectName: e.target.value }))}
-              className="w-48 rounded-lg border border-border px-3 py-2 text-sm transition focus:border-brand-400 focus:outline-none dark:border-border-dark dark:bg-surface-dark dark:text-text-dark"
+      <Card>
+        <CardHeader>
+          <CardTitle>新增 / 更新环境变量</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-3">
+            {activeTab === 'project' && (
+              <Input
+                placeholder="项目名"
+                value={form.projectName}
+                onChange={(e) => setForm((f) => ({ ...f, projectName: e.target.value }))}
+                className="w-48"
+              />
+            )}
+            <Input
+              placeholder="键"
+              value={form.key}
+              onChange={(e) => setForm((f) => ({ ...f, key: e.target.value }))}
+              className="w-48"
             />
-          )}
-          <input
-            placeholder="键"
-            value={form.key}
-            onChange={(e) => setForm((f) => ({ ...f, key: e.target.value }))}
-            className="w-48 rounded-lg border border-border px-3 py-2 text-sm transition focus:border-brand-400 focus:outline-none dark:border-border-dark dark:bg-surface-dark dark:text-text-dark"
-          />
-          <input
-            placeholder="值"
-            value={form.value}
-            onChange={(e) => setForm((f) => ({ ...f, value: e.target.value }))}
-            className="w-64 flex-1 rounded-lg border border-border px-3 py-2 text-sm transition focus:border-brand-400 focus:outline-none dark:border-border-dark dark:bg-surface-dark dark:text-text-dark"
-          />
-          <button
-            onClick={() => createMutation.mutate()}
-            disabled={!form.key || (activeTab === 'project' && !form.projectName)}
-            className="rounded-full bg-brand-500 px-5 py-2 text-sm font-semibold text-white shadow-brand transition duration-200 ease-in-out-soft hover:bg-brand-400 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            保存
-          </button>
-        </div>
-      </div>
+            <Input
+              placeholder="值"
+              value={form.value}
+              onChange={(e) => setForm((f) => ({ ...f, value: e.target.value }))}
+              className="flex-1 min-w-[16rem]"
+            />
+            <Button
+              onClick={() => createMutation.mutate()}
+              disabled={!form.key || (activeTab === 'project' && !form.projectName)}
+            >
+              保存
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }
