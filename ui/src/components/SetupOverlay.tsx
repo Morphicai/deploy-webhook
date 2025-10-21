@@ -29,40 +29,40 @@ export default function SetupOverlay({ onCompleted }: { onCompleted: () => void 
   })
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 px-4">
-      <div className="w-full max-w-lg space-y-6 rounded-3xl border border-slate-800 bg-slate-900/80 p-8 text-white shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 px-4 backdrop-blur-sm transition-colors duration-500 ease-in-out-soft dark:bg-background-deep/90">
+      <div className="w-full max-w-lg space-y-6 rounded-3xl border border-border bg-surface/95 p-8 text-text-primary shadow-soft dark:border-border-dark dark:bg-surface-darker/85 dark:text-text-dark">
         <div className="space-y-2 text-center">
           <h2 className="text-2xl font-semibold">初始化管理员账号</h2>
-          <p className="text-sm text-slate-400">首次使用时需要设置管理员邮箱和密码</p>
+          <p className="text-sm text-text-secondary dark:text-text-softer">首次使用时需要设置管理员邮箱和密码</p>
         </div>
         <div className="space-y-4">
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-slate-300">邮箱</label>
+            <label className="block text-sm font-medium text-text-secondary dark:text-text-softer">邮箱</label>
             <input
               type="email"
               value={form.email}
               onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white focus:border-emerald-400 focus:outline-none"
+              className="w-full rounded-xl border border-border px-3 py-2.5 text-sm transition focus:border-brand-400 focus:outline-none dark:border-border-dark dark:bg-surface-dark dark:text-text-dark"
               placeholder="admin@example.com"
             />
           </div>
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-slate-300">密码</label>
+            <label className="block text-sm font-medium text-text-secondary dark:text-text-softer">密码</label>
             <input
               type="password"
               value={form.password}
               onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white focus:border-emerald-400 focus:outline-none"
+              className="w-full rounded-xl border border-border px-3 py-2.5 text-sm transition focus:border-brand-400 focus:outline-none dark:border-border-dark dark:bg-surface-dark dark:text-text-dark"
               placeholder="至少 8 位"
             />
           </div>
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-slate-300">确认密码</label>
+            <label className="block text-sm font-medium text-text-secondary dark:text-text-softer">确认密码</label>
             <input
               type="password"
               value={form.confirm}
               onChange={(e) => setForm((f) => ({ ...f, confirm: e.target.value }))}
-              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white focus:border-emerald-400 focus:outline-none"
+              className="w-full rounded-xl border border-border px-3 py-2.5 text-sm transition focus:border-brand-400 focus:outline-none dark:border-border-dark dark:bg-surface-dark dark:text-text-dark"
             />
           </div>
           {error && <p className="text-sm text-red-400">{error}</p>}
@@ -72,7 +72,7 @@ export default function SetupOverlay({ onCompleted }: { onCompleted: () => void 
               mutation.mutate()
             }}
             disabled={mutation.isPending}
-            className="w-full rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
+            className="w-full rounded-full bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-brand transition duration-200 ease-in-out-soft hover:bg-brand-400 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {mutation.isPending ? '创建中...' : '创建管理员'}
           </button>

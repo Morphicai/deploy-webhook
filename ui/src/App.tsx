@@ -10,12 +10,14 @@ import LoginPage from './pages/LoginPage'
 import ProtectedRoute from './components/ProtectedRoute'
 import AuthenticatedLayout from './layouts/AuthenticatedLayout'
 import SetupOverlay from './components/SetupOverlay'
+import { useTheme } from './store/useTheme'
 import { useSetupState } from './store/useSetupState'
 import api from './api/client'
 
 function App() {
   const [queryClient] = useState(() => new QueryClient())
   const { needsSetup, setNeedsSetup } = useSetupState()
+  const { isDark, syncSystemPreference } = useTheme()
 
   useEffect(() => {
     async function checkStatus() {
@@ -28,6 +30,25 @@ function App() {
     }
     checkStatus()
   }, [setNeedsSetup])
+
+  useEffect(() => {
+    const root = document.documentElement
+    if (isDark) {
+      root.classList.add('dark')
+    } else {
+      root.classList.remove('dark')
+    }
+  }, [isDark])
+
+  useEffect(() => {
+    const media = window.matchMedia('(prefers-color-scheme: dark)')
+    const handler = (event: MediaQueryListEvent) => syncSystemPreference(event.matches)
+
+    syncSystemPreference(media.matches)
+
+    media.addEventListener('change', handler)
+    return () => media.removeEventListener('change', handler)
+  }, [syncSystemPreference])
 
   const router = useMemo(
     () =>

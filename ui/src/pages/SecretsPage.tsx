@@ -60,50 +60,56 @@ export default function SecretsPage() {
   })
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">秘钥管理</h2>
+    <div className="space-y-8">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-2xl font-semibold text-text-primary dark:text-text-dark">秘钥管理</h2>
+          <p className="text-sm text-text-secondary dark:text-text-softer">查看与管理外部秘钥配置</p>
+        </div>
         <button
           onClick={() => queryClient.invalidateQueries({ queryKey: ['secrets'] })}
-          className="rounded-md border border-slate-200 px-3 py-1.5 text-sm hover:bg-slate-100"
+          className="rounded-full border border-border px-4 py-2 text-sm font-medium text-text-secondary transition duration-200 ease-in-out-soft hover:bg-brand-100 hover:text-brand-700 dark:border-border-dark dark:text-text-softer dark:hover:bg-surface-darker/70 dark:hover:text-brand-300"
         >
           刷新
         </button>
       </div>
 
-      <div className="rounded-lg border border-slate-200">
-        <table className="w-full table-fixed border-collapse text-sm">
-          <thead>
-            <tr className="bg-slate-100 text-left text-slate-600">
-              <th className="w-40 px-3 py-2">名称</th>
-              <th className="w-32 px-3 py-2">Provider</th>
-              <th className="px-3 py-2">Reference</th>
-              <th className="px-3 py-2">Metadata</th>
-              <th className="w-24 px-3 py-2 text-right">操作</th>
+      <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-soft transition-colors duration-300 ease-in-out-soft dark:border-border-dark dark:bg-surface-darker/70">
+        <table className="w-full table-fixed border-collapse text-sm text-text-primary dark:text-text-dark">
+          <thead className="bg-surface-muted/80 text-left text-text-secondary dark:bg-surface-darker/60 dark:text-text-softer">
+            <tr>
+              <th className="w-40 px-4 py-3 text-xs font-semibold uppercase tracking-wide">名称</th>
+              <th className="w-32 px-4 py-3 text-xs font-semibold uppercase tracking-wide">Provider</th>
+              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide">Reference</th>
+              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide">Metadata</th>
+              <th className="w-28 px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide">操作</th>
             </tr>
           </thead>
           <tbody>
             {isLoading && (
               <tr>
-                <td colSpan={5} className="px-3 py-6 text-center text-slate-500">
+                <td colSpan={5} className="px-4 py-8 text-center text-text-secondary dark:text-text-softer">
                   加载中...
                 </td>
               </tr>
             )}
             {data?.map((secret) => (
-              <tr key={secret.id} className="border-b border-slate-100">
-                <td className="px-3 py-2 font-medium text-slate-800">{secret.name}</td>
-                <td className="px-3 py-2 text-slate-500">{secret.provider}</td>
-                <td className="px-3 py-2 text-slate-600">{secret.reference}</td>
-                <td className="px-3 py-2">
-                  <pre className="whitespace-pre-wrap text-xs text-slate-500">
+              <tr
+                key={secret.id}
+                className="border-b border-border last:border-none transition-colors duration-150 hover:bg-surface-subtle/50 dark:border-border-dark dark:hover:bg-surface-dark/60"
+              >
+                <td className="px-4 py-3 font-medium text-text-primary dark:text-text-dark">{secret.name}</td>
+                <td className="px-4 py-3 text-text-secondary dark:text-text-softer">{secret.provider}</td>
+                <td className="px-4 py-3 text-text-secondary dark:text-text-softer">{secret.reference}</td>
+                <td className="px-4 py-3">
+                  <pre className="whitespace-pre-wrap rounded-lg bg-surface-subtle px-3 py-2 text-xs text-text-secondary dark:bg-surface-dark/60 dark:text-text-softer">
                     {secret.metadata}
                   </pre>
                 </td>
-                <td className="px-3 py-2 text-right">
+                <td className="px-4 py-3 text-right">
                   <button
                     onClick={() => deleteMutation.mutate(secret.id)}
-                    className="rounded border border-red-200 px-2 py-1 text-xs text-red-500 hover:bg-red-50"
+                    className="rounded-full border border-red-300 px-3 py-1 text-xs font-semibold text-red-500 transition duration-200 ease-in-out-soft hover:bg-red-500/10 hover:text-red-400"
                   >
                     删除
                   </button>
@@ -112,7 +118,7 @@ export default function SecretsPage() {
             ))}
             {!isLoading && !data?.length && (
               <tr>
-                <td colSpan={5} className="px-3 py-6 text-center text-slate-500">
+                <td colSpan={5} className="px-4 py-8 text-center text-text-secondary dark:text-text-softer">
                   暂无秘钥配置
                 </td>
               </tr>
@@ -121,19 +127,19 @@ export default function SecretsPage() {
         </table>
       </div>
 
-      <div className="space-y-3 rounded-lg border border-slate-200 p-4">
-        <h3 className="text-sm font-medium">新增秘钥</h3>
+      <div className="space-y-4 rounded-2xl border border-border bg-surface p-6 shadow-soft transition-colors duration-300 ease-in-out-soft dark:border-border-dark dark:bg-surface-darker/80">
+        <h3 className="text-sm font-semibold text-text-secondary dark:text-text-softer">新增秘钥</h3>
         <div className="flex flex-wrap gap-3">
           <input
             placeholder="名称"
             value={form.name}
             onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-            className="w-40 rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="w-40 rounded-lg border border-border px-3 py-2 text-sm transition focus:border-brand-400 focus:outline-none dark:border-border-dark dark:bg-surface-dark dark:text-text-dark"
           />
           <select
             value={form.provider}
             onChange={(e) => setForm((f) => ({ ...f, provider: e.target.value as (typeof providers)[number]['value'] }))}
-            className="w-40 rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="w-40 rounded-lg border border-border px-3 py-2 text-sm transition focus:border-brand-400 focus:outline-none dark:border-border-dark dark:bg-surface-dark dark:text-text-dark"
           >
             {providers.map((p) => (
               <option key={p.value} value={p.value}>
@@ -145,18 +151,18 @@ export default function SecretsPage() {
             placeholder="Reference"
             value={form.reference}
             onChange={(e) => setForm((f) => ({ ...f, reference: e.target.value }))}
-            className="w-64 rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="w-64 rounded-lg border border-border px-3 py-2 text-sm transition focus:border-brand-400 focus:outline-none dark:border-border-dark dark:bg-surface-dark dark:text-text-dark"
           />
           <textarea
             placeholder="Metadata JSON"
             value={form.metadata}
             onChange={(e) => setForm((f) => ({ ...f, metadata: e.target.value }))}
-            className="h-24 min-w-[16rem] flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="h-24 min-w-[16rem] flex-1 rounded-lg border border-border px-3 py-2 text-sm transition focus:border-brand-400 focus:outline-none dark:border-border-dark dark:bg-surface-dark dark:text-text-dark"
           />
           <button
             onClick={() => createMutation.mutate()}
             disabled={!form.name || !form.reference}
-            className="self-start rounded-md bg-slate-800 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="self-start rounded-full bg-brand-500 px-5 py-2 text-sm font-semibold text-white shadow-brand transition duration-200 ease-in-out-soft hover:bg-brand-400 disabled:cursor-not-allowed disabled:opacity-50"
           >
             保存
           </button>

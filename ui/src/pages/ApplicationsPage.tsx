@@ -27,7 +27,7 @@ export default function ApplicationsPage() {
   const latestApp = data?.[0]
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
       <section className="grid gap-4 md:grid-cols-3">
         <StatsCard title="项目总数" value={isLoading ? '…' : totalApps} />
         <StatsCard
@@ -46,15 +46,15 @@ export default function ApplicationsPage() {
         action={
           <button
             onClick={() => refetch()}
-            className="rounded-full bg-emerald-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-400"
+            className="rounded-full bg-brand-500 px-3 py-1.5 text-sm font-medium text-white shadow-brand transition duration-200 ease-in-out-soft hover:bg-brand-400"
           >
             刷新
           </button>
         }
       >
-        {isLoading && <p className="text-sm text-slate-400">加载中...</p>}
+        {isLoading && <p className="text-sm text-text-secondary">加载中...</p>}
         {isError && <p className="text-sm text-red-400">加载应用列表失败</p>}
-        {!isLoading && !data?.length && <p className="text-sm text-slate-400">暂无部署记录</p>}
+        {!isLoading && !data?.length && <p className="text-sm text-text-secondary">暂无部署记录</p>}
 
         {!!data?.length && (
           <TableWrapper>
@@ -71,11 +71,11 @@ export default function ApplicationsPage() {
               <tbody>
                 {data.map((app) => (
                   <TRow key={app.id}>
-                    <TD className="font-semibold text-white">{app.name}</TD>
-                    <TD className="text-slate-400">{app.repo}</TD>
+                    <TD className="font-semibold text-text-primary dark:text-text-dark">{app.name}</TD>
+                    <TD className="text-text-secondary dark:text-text-softer">{app.repo}</TD>
                     <TD>{app.version}</TD>
                     <TD>{app.port} → {app.containerPort}</TD>
-                    <TD className="text-slate-400">{new Date(app.lastDeployedAt).toLocaleString()}</TD>
+                    <TD className="text-text-secondary dark:text-text-softer">{new Date(app.lastDeployedAt).toLocaleString()}</TD>
                   </TRow>
                 ))}
               </tbody>

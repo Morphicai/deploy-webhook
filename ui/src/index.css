@@ -1,15 +1,4 @@
-@import './tailwind.css';
-
-:root {
-  font-family: 'Inter', system-ui, sans-serif;
-  color: #0f172a;
-  background-color: #f8fafc;
-}
-
 body {
   margin: 0;
-}
-
-a {
-  color: inherit;
+  font-family: 'Inter', system-ui, sans-serif;
 }
