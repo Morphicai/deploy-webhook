@@ -1,0 +1,88 @@
+version: '3.8'
+
+services:
+  # Caddy 反向代理
+  caddy:
+    image: caddy:2-alpine
+    container_name: deploy-webhook-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"       # HTTP (自动重定向到 HTTPS)
+      - "443:443"     # HTTPS
+      - "443:443/udp" # HTTP/3 (QUIC)
+    volumes:
+      # Caddyfile 配置
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # 证书持久化（重要！避免重新申请证书）
+      - caddy_data:/data
+      - caddy_config:/config
+      # 日志目录
+      - ./logs/caddy:/var/log/caddy
+    networks:
+      - deploy-network
+    depends_on:
+      - backend
+      - frontend
+    environment:
+      # Caddy 管理端口（可选）
+      - CADDY_ADMIN=0.0.0.0:2019
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Deploy Webhook 后端
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: deploy-webhook-backend
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./data:/app/data
+    environment:
+      - PORT=9000
+      - NODE_ENV=production
+      - JWT_SECRET=${JWT_SECRET}
+      - ADMIN_TOKEN=${ADMIN_TOKEN}
+      - WEBHOOK_SECRET=${WEBHOOK_SECRET}
+    networks:
+      - deploy-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Deploy Webhook 前端
+  frontend:
+    build:
+      context: ./ui
+      dockerfile: Dockerfile
+    container_name: deploy-webhook-frontend
+    restart: unless-stopped
+    ports:
+      - "9001:80"
+    environment:
+      - VITE_API_URL=https://deploy.example.com
+    networks:
+      - deploy-network
+    depends_on:
+      - backend
+
+volumes:
+  # Caddy 数据卷（证书和配置）
+  caddy_data:
+    driver: local
+  caddy_config:
+    driver: local
+
+networks:
+  deploy-network:
+    driver: bridge
+

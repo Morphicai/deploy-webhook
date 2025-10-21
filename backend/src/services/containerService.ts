@@ -9,6 +9,7 @@ import {
 } from './applicationStore';
 import { getRepositoryById } from './repositoryStore';
 import { buildEnvironmentForProject } from './envStore';
+import { caddyService } from './caddyService';
 import path from 'path';
 import fs from 'fs';
 
@@ -129,6 +130,17 @@ export class ContainerService {
       await container.start();
 
       updateApplicationDeployedAt(appId);
+      
+      // 自动更新 Caddy 配置
+      try {
+        this.log('Updating Caddy configuration', { appId, appName: app.name });
+        caddyService.updateAndReload();
+        this.log('Caddy configuration updated', { appId, appName: app.name });
+      } catch (caddyError) {
+        this.logError('Failed to update Caddy, but deployment succeeded', caddyError, { appId });
+        // 不抛出错误，因为容器已经成功部署
+      }
+      
       this.log('Deployment completed', { appId, appName: app.name });
     } catch (error) {
       this.logError('Deployment failed', error, { appId, appName: app.name });

@@ -13,6 +13,7 @@ import authRouter from './routes/auth';
 import webhooksRouter from './routes/webhooks';
 import repositoriesRouter from './routes/repositories';
 import imageWhitelistRouter from './routes/imageWhitelist';
+import caddyRouter from './routes/caddy';
 import cors from 'cors';
 import { swaggerSpec } from './swagger';
 
@@ -34,6 +35,7 @@ app.use('/api/env', envRouter);
 app.use('/api/applications', applicationsRouter);
 app.use('/api/repositories', repositoriesRouter);
 app.use('/api/image-whitelist', imageWhitelistRouter);
+app.use('/api/caddy', caddyRouter);
 app.use('/api/auth', authRouter);
 app.use('/docs', docsRouter);
 app.get('/docs.json', (_req: Request, res: Response) => {

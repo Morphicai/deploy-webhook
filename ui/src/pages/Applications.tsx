@@ -27,6 +27,7 @@ interface Application {
   image: string;
   version: string | null;
   repositoryId: number | null;
+  domain: string | null;
   ports: PortMapping[];
   envVars: Record<string, string>;
   status: 'running' | 'stopped' | 'error' | 'deploying';
@@ -53,6 +54,7 @@ export const Applications: React.FC = () => {
     image: '',
     version: 'latest',
     repositoryId: '',
+    domain: '',
   });
 
   const [ports, setPorts] = useState<PortMapping[]>([{ host: 80, container: 80 }]);
@@ -76,7 +78,7 @@ export const Applications: React.FC = () => {
   };
 
   const resetForm = () => {
-    setFormData({ name: '', image: '', version: 'latest', repositoryId: '' });
+    setFormData({ name: '', image: '', version: 'latest', repositoryId: '', domain: '' });
     setPorts([{ host: 80, container: 80 }]);
     setEnvVars([]);
     setEditingId(null);
@@ -129,6 +131,7 @@ export const Applications: React.FC = () => {
         image: formData.image,
         version: formData.version || 'latest',
         repositoryId: formData.repositoryId ? Number(formData.repositoryId) : null,
+        domain: formData.domain || null,
         ports: ports,
         envVars: envVars.reduce((acc: Record<string, string>, env) => {
           if (env.key) acc[env.key] = env.value;
@@ -160,6 +163,7 @@ export const Applications: React.FC = () => {
       image: app.image,
       version: app.version || 'latest',
       repositoryId: app.repositoryId ? String(app.repositoryId) : '',
+      domain: app.domain || '',
     });
     setPorts(app.ports.length > 0 ? app.ports : [{ host: 80, container: 80 }]);
     setEnvVars(Object.entries(app.envVars).map(([key, value]) => ({ key, value })));
@@ -242,10 +246,13 @@ export const Applications: React.FC = () => {
     return <Badge variant={variant}>{label}</Badge>;
   };
 
-  const getRepositoryName = (repositoryId: number | null): string => {
-    if (!repositoryId) return 'Docker Hub (Default)';
-    const repo = repositories.find(r => r.id === repositoryId);
-    return repo ? repo.name : `Repository #${repositoryId}`;
+  const getApplicationUrl = (app: Application): string => {
+    if (app.domain) {
+      return `https://${app.domain}`;
+    }
+    // 自动生成的子域名
+    const subdomain = app.name.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+    return `https://${subdomain}.apps.example.com`;
   };
 
   return (
@@ -329,6 +336,19 @@ export const Applications: React.FC = () => {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="domain">Custom Domain (Optional)</Label>
+                <Input
+                  id="domain"
+                  placeholder="api.mycompany.com"
+                  value={formData.domain}
+                  onChange={(e) => setFormData({ ...formData, domain: e.target.value })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Leave empty to use auto-generated subdomain: {formData.name ? `${formData.name}.apps.example.com` : 'your-app.apps.example.com'}
+                </p>
               </div>
             </div>
 
@@ -452,9 +472,8 @@ export const Applications: React.FC = () => {
                   <TableRow>
                     <TableHead>Name</TableHead>
                     <TableHead>Image</TableHead>
-                    <TableHead>Ports</TableHead>
+                    <TableHead>URL</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Repository</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -468,18 +487,22 @@ export const Applications: React.FC = () => {
                         </code>
                       </TableCell>
                       <TableCell>
-                        <div className="text-sm">
-                          {app.ports.map((p, i) => (
-                            <div key={i}>
-                              {p.host} → {p.container}
-                            </div>
-                          ))}
-                        </div>
+                        {app.status === 'running' ? (
+                          <a
+                            href={getApplicationUrl(app)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-blue-600 hover:underline flex items-center gap-1"
+                          >
+                            🌐 {app.domain || `${app.name}.apps.example.com`}
+                          </a>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">
+                            {app.domain || `${app.name}.apps.example.com`}
+                          </span>
+                        )}
                       </TableCell>
                       <TableCell>{getStatusBadge(app.status)}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {getRepositoryName(app.repositoryId)}
-                      </TableCell>
                       <TableCell>
                         <div className="flex items-center justify-end gap-1">
                           {app.status === 'stopped' && (

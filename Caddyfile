@@ -1,0 +1,113 @@
+# Caddy 配置文件
+# 自动 HTTPS 反向代理
+
+# 全局配置
+{
+	# 邮箱用于 Let's Encrypt 证书申请
+	email admin@example.com
+	
+	# 可选：使用 staging 环境测试（避免 rate limit）
+	# acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+}
+
+# Deploy Webhook 管理后台
+deploy.example.com {
+	# 自动 HTTPS
+	# Caddy 会自动申请和续期证书
+	
+	# 反向代理到前端
+	reverse_proxy localhost:9001
+	
+	# 日志
+	log {
+		output file /var/log/caddy/deploy.log
+		format json
+	}
+	
+	# 压缩
+	encode gzip zstd
+	
+	# 安全头
+	header {
+		# HSTS
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		# XSS 保护
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		X-XSS-Protection "1; mode=block"
+		# CSP (可根据需要调整)
+		Content-Security-Policy "default-src 'self' 'unsafe-inline' 'unsafe-eval'; img-src 'self' data: https:;"
+	}
+}
+
+# API 端点（可选：如果需要单独域名）
+api.deploy.example.com {
+	reverse_proxy localhost:9000
+	
+	log {
+		output file /var/log/caddy/api.log
+		format json
+	}
+	
+	encode gzip zstd
+}
+
+# 动态应用代理
+# 使用通配符域名
+*.apps.example.com {
+	# 使用 Caddy 的模板功能
+	# {labels.1} 会捕获子域名
+	# 例如：app1.apps.example.com -> localhost:8001
+	
+	@app1 host app1.apps.example.com
+	handle @app1 {
+		reverse_proxy localhost:8001
+	}
+	
+	@app2 host app2.apps.example.com
+	handle @app2 {
+		reverse_proxy localhost:8002
+	}
+	
+	# 默认处理
+	handle {
+		respond "Application not found" 404
+	}
+	
+	log {
+		output file /var/log/caddy/apps.log
+		format json
+	}
+	
+	encode gzip zstd
+}
+
+# Webhook 端点（可选：如果需要单独域名）
+webhooks.example.com {
+	# 只允许 POST 请求
+	@webhook {
+		path /webhooks/*
+		method POST
+	}
+	
+	handle @webhook {
+		reverse_proxy localhost:9000
+	}
+	
+	handle {
+		respond "Method not allowed" 405
+	}
+	
+	log {
+		output file /var/log/caddy/webhooks.log
+		format json
+	}
+}
+
+# 健康检查端点（不需要 HTTPS）
+:8080 {
+	handle /health {
+		respond "OK" 200
+	}
+}
+
