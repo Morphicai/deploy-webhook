@@ -8,6 +8,9 @@ import { DeployRequest, HealthResponse } from './types';
 import docsRouter from './routes/docs';
 import envRouter from './routes/env';
 import secretRouter from './routes/secrets';
+import applicationsRouter from './routes/applications';
+import authRouter from './routes/auth';
+import cors from 'cors';
 import { swaggerSpec } from './swagger';
 
 const app = express();
@@ -15,6 +18,9 @@ const deployService = new DeployService();
 
 // Middleware
 app.use(express.json());
+if (process.env.NODE_ENV !== 'production') {
+  app.use(cors({ origin: '*', credentials: true }));
+}
 app.use(morgan('combined', {
   skip: (req) => req.url === '/health'  // 跳过健康检查端点的日志
 }));
@@ -22,6 +28,8 @@ app.use(morgan('combined', {
 // Admin API routes
 app.use('/api/secrets', secretRouter);
 app.use('/api/env', envRouter);
+app.use('/api/applications', applicationsRouter);
+app.use('/api/auth', authRouter);
 app.use('/docs', docsRouter);
 app.get('/docs.json', (_req: Request, res: Response) => {
   res.json(swaggerSpec);
