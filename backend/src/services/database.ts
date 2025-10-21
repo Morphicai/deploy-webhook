@@ -94,12 +94,33 @@ function ensureDatabase(): Database.Database {
     BEGIN
       UPDATE users SET updated_at = datetime('now') WHERE id = NEW.id;
     END;
+    CREATE TABLE IF NOT EXISTS repositories (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE,
+      registry TEXT NOT NULL,
+      authType TEXT NOT NULL,
+      username TEXT,
+      password TEXT,
+      token TEXT,
+      isDefault INTEGER NOT NULL DEFAULT 0,
+      createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+      updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE TRIGGER IF NOT EXISTS repositories_updated_at
+    AFTER UPDATE ON repositories
+    BEGIN
+      UPDATE repositories SET updatedAt = datetime('now') WHERE id = NEW.id;
+    END;
   `);
 
   return db;
 }
 
 const databaseInstance = ensureDatabase();
+
+// Initialize default repository
+import { initializeDefaultRepository } from './repositoryStore';
+initializeDefaultRepository();
 
 export function getDb(): Database.Database {
   return databaseInstance;

@@ -9,6 +9,7 @@ import https from 'https';
 import http from 'http';
 import { buildEnvironmentForProject } from './envStore';
 import { upsertApplication } from './applicationStore';
+import { getRepositoryById, getDefaultRepository, type RepositoryRecord } from './repositoryStore';
 
 function postJson(urlString: string, body: unknown, headers: Record<string, string> = {}): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -116,11 +117,47 @@ export class DeployService {
     return crypto.randomUUID ? crypto.randomUUID() : crypto.randomBytes(16).toString('hex');
   }
 
-  private async pullImage(fullImage: string): Promise<void> {
+  private async pullImage(fullImage: string, repository?: RepositoryRecord | null): Promise<void> {
     const [registry] = fullImage.split('/');
-    const authconfig = (deployConfig.dockerUsername && deployConfig.dockerPassword)
-      ? { username: deployConfig.dockerUsername, password: deployConfig.dockerPassword, serveraddress: registry }
-      : undefined;
+    let authconfig: any = undefined;
+
+    // 使用指定仓库的认证信息
+    if (repository) {
+      if (repository.authType === 'username-password' && repository.username && repository.password) {
+        authconfig = {
+          username: repository.username,
+          password: repository.password,
+          serveraddress: registry,
+        };
+      } else if (repository.authType === 'token' && repository.token) {
+        // Docker Hub PAT: 需要提供用户名 + Token
+        // GCR/其他 OAuth2: 使用 oauth2accesstoken + Token
+        const isDockerHub = registry.includes('docker.io') || registry.includes('index.docker.io');
+        
+        if (isDockerHub && repository.username) {
+          // Docker Hub PAT: username + token (as password)
+          authconfig = {
+            username: repository.username,
+            password: repository.token,
+            serveraddress: registry,
+          };
+        } else {
+          // GCR 等 OAuth2 认证
+          authconfig = {
+            username: 'oauth2accesstoken',
+            password: repository.token,
+            serveraddress: registry,
+          };
+        }
+      }
+    } else if (deployConfig.dockerUsername && deployConfig.dockerPassword) {
+      // 向后兼容：使用配置文件中的认证信息
+      authconfig = {
+        username: deployConfig.dockerUsername,
+        password: deployConfig.dockerPassword,
+        serveraddress: registry,
+      };
+    }
 
     await new Promise<void>((resolve, reject) => {
       this.docker.pull(fullImage, { authconfig }, (err, stream) => {
@@ -170,18 +207,41 @@ export class DeployService {
     const port = Number(params.port);
     const containerPort = Number(params.containerPort);
 
-    const fullImage = `${deployConfig.registryHost}/${repo}:${version}`;
+    // 获取仓库配置
+    let repository: RepositoryRecord | null = null;
+    if (params.repositoryId) {
+      repository = getRepositoryById(params.repositoryId);
+      if (!repository) {
+        throw new Error(`Repository with id ${params.repositoryId} not found`);
+      }
+    } else {
+      // 使用默认仓库
+      repository = getDefaultRepository();
+    }
+
+    // 构建完整的镜像名称
+    let fullImage: string;
+    if (repository) {
+      // 从 registry URL 中提取主机名
+      const registryHost = new URL(repository.registry).hostname;
+      fullImage = `${registryHost}/${repo}:${version}`;
+      this.log('Using repository', { repositoryName: repository.name, registry: registryHost });
+    } else {
+      // 向后兼容：使用配置文件中的 registryHost
+      fullImage = `${deployConfig.registryHost}/${repo}:${version}`;
+    }
 
     try {
       this.log('Starting deployment', { deploymentId, name, repo, version, port, containerPort });
       this.log('Pulling image', { fullImage });
-      await this.pullImage(fullImage);
+      await this.pullImage(fullImage, repository);
       this.log('Image pull completed', { fullImage });
       this.log('Stopping and removing existing container if present', { name });
       await this.stopAndRemoveContainer(name);
 
       const envFromStore = buildEnvironmentForProject(name);
       const mergedEnv: Record<string, string> = { ...envFromStore };
+      
       if (params.env) {
         for (const [key, value] of Object.entries(params.env)) {
           mergedEnv[key] = String(value);

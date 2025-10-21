@@ -9,6 +9,7 @@ export interface DeployRequest {
   secret?: string;
   env?: Record<string, string | number | boolean>;
   secretRefs?: string[];
+  repositoryId?: number;  // 指定使用的镜像仓库ID（可选，默认使用默认仓库）
 }
 
 export interface DeployResponse {

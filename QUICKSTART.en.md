@@ -16,12 +16,17 @@ docker run -d --name deploy-webhook -p 9000:9000 \
   focusbe/deploy-webhook:latest
 ```
 
-### 2. Check Health
+### 2. Access Web Management UI
+Open your browser and visit `http://localhost:3001` (requires UI to be started, see below)
+
+On first visit, you'll be guided to create an admin account, then you can manage all features through the visual interface.
+
+### 3. Check Health
 ```bash
 curl http://localhost:9000/health
 ```
 
-### 3. Trigger a Deployment (CI Example)
+### 4. Trigger a Deployment (CI Example)
 ```bash
 curl -X POST http://<host>:9000/deploy \
   -H "Content-Type: application/json" \
@@ -35,15 +40,53 @@ curl -X POST http://<host>:9000/deploy \
   }'
 ```
 
+## 🖥️ Web Management UI
+
+Deploy Webhook provides a modern web management interface with:
+
+- 📊 **Dashboard** - Overview of deployment status and system metrics
+- 🚀 **Application Management** - Visual deployment and container monitoring
+- ⚙️ **Environment Variables** - Manage global and project-scoped environment variables
+- 🔑 **Secrets Management** - Integration with Infisical and other secret providers
+- 🌓 **Dark/Light Mode** - Automatic theme switching
+- 🌍 **Multi-language Support** - English/Chinese interface
+
+### Start UI (Development Mode)
+
+```bash
+cd ui
+npm install
+npm run dev
+```
+
+Access the management interface at `http://localhost:3001`.
+
+### Production UI Deployment
+
+```bash
+cd ui
+npm install
+npm run build
+# Serve the dist directory with nginx or another web server
+```
+
 ## 🔧 Advanced Configuration (Optional)
 
 - `IMAGE_NAME_WHITELIST`: Restrict deployable repos (comma separated)
 - `CALLBACK_URL` / `CALLBACK_HEADERS` / `CALLBACK_SECRET`: Enable callbacks with optional HMAC signature
+- `JWT_SECRET`: Set JWT secret for management UI authentication
 
 ## 🐳 Local Build (Optional)
 
 ```bash
+# Build backend
+cd backend
 docker build -t focusbe/deploy-webhook:dev .
+
+# Build frontend
+cd ui
+npm install
+npm run build
 ```
 
 ## 📡 API Examples

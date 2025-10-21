@@ -16,12 +16,17 @@ docker run -d --name deploy-webhook -p 9000:9000 \
   focusbe/deploy-webhook:latest
 ```
 
-### 2. 验证健康
+### 2. 访问管理界面
+打开浏览器访问 `http://localhost:3001`（需要先启动 UI，见下方）
+
+首次访问将引导您创建管理员账户，之后即可使用可视化界面管理所有功能。
+
+### 3. 验证健康
 ```bash
 curl http://localhost:9000/health
 ```
 
-### 3. 触发部署（CI 示例）
+### 4. 触发部署（CI 示例）
 ```bash
 curl -X POST http://<host>:9000/deploy \
   -H "Content-Type: application/json" \
@@ -35,15 +40,53 @@ curl -X POST http://<host>:9000/deploy \
   }'
 ```
 
+## 🖥️ Web 管理界面
+
+Deploy Webhook 提供了现代化的 Web 管理界面，支持：
+
+- 📊 **仪表板** - 概览部署状态和系统指标
+- 🚀 **应用管理** - 可视化部署和监控容器
+- ⚙️ **环境变量** - 管理全局和项目级环境变量
+- 🔑 **密钥管理** - 集成 Infisical 等密钥提供商
+- 🌓 **深色/浅色模式** - 自动切换主题
+- 🌍 **多语言支持** - 中文/英文界面
+
+### 启动 UI（开发模式）
+
+```bash
+cd ui
+npm install
+npm run dev
+```
+
+访问 `http://localhost:3001` 即可使用管理界面。
+
+### 生产部署 UI
+
+```bash
+cd ui
+npm install
+npm run build
+# 使用 nginx 或其他 web 服务器托管 dist 目录
+```
+
 ## 🔧 进阶配置（可选）
 
 - IMAGE_NAME_WHITELIST：限制可部署的 repo 列表（逗号分隔）
 - CALLBACK_URL / CALLBACK_HEADERS / CALLBACK_SECRET：开启回调与签名
+- JWT_SECRET：设置 JWT 密钥用于管理界面认证
 
 ## 🐳 本地构建（可选）
 
 ```bash
+# 构建后端
+cd backend
 docker build -t focusbe/deploy-webhook:dev .
+
+# 构建前端
+cd ui
+npm install
+npm run build
 ```
 
 ## 📡 API 使用示例

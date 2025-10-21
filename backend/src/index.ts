@@ -10,6 +10,8 @@ import envRouter from './routes/env';
 import secretRouter from './routes/secrets';
 import applicationsRouter from './routes/applications';
 import authRouter from './routes/auth';
+import webhooksRouter from './routes/webhooks';
+import repositoriesRouter from './routes/repositories';
 import cors from 'cors';
 import { swaggerSpec } from './swagger';
 
@@ -29,11 +31,15 @@ app.use(morgan('combined', {
 app.use('/api/secrets', secretRouter);
 app.use('/api/env', envRouter);
 app.use('/api/applications', applicationsRouter);
+app.use('/api/repositories', repositoriesRouter);
 app.use('/api/auth', authRouter);
 app.use('/docs', docsRouter);
 app.get('/docs.json', (_req: Request, res: Response) => {
   res.json(swaggerSpec);
 });
+
+// Webhook routes (不需要认证，使用签名验证)
+app.use('/webhooks', webhooksRouter);
 
 /**
  * @openapi
@@ -128,6 +134,7 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
 // Start server
 app.listen(deployConfig.port, () => {
   console.log(`[deploy-webhook] Server listening on port ${deployConfig.port}`);
+  console.log(`[deploy-webhook] Infisical Webhook endpoint: /webhooks/infisical`);
 });
 
 process.on('SIGTERM', () => process.exit(0));
