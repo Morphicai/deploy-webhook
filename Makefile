@@ -6,23 +6,44 @@ help: ## Show this help message
 	@echo ""
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
 
-install: ## Install dependencies
-	npm install
+install: ## Install dependencies for all packages
+	pnpm install
 
-build: ## Build TypeScript code
-	npm run build
+install-backend: ## Install backend dependencies only
+	cd backend && pnpm install
+
+install-ui: ## Install UI dependencies only
+	cd ui && pnpm install
+
+build: ## Build all packages
+	pnpm run build
+
+build-backend: ## Build backend TypeScript code
+	pnpm --filter backend build
+
+build-ui: ## Build UI for production
+	pnpm --filter ui build
 
 build-docker: ## Build Docker image
-	./scripts/build.sh
+	cd backend && ./scripts/build.sh
 
 build-docker-push: ## Build and push Docker image
-	./scripts/build.sh --push -r $(REGISTRY)
+	cd backend && ./scripts/build.sh --push -r $(REGISTRY)
 
-dev: ## Start development server
-	./scripts/start.sh -m development
+dev: ## Start all development servers (backend + ui)
+	pnpm --parallel -r dev
 
-prod: ## Start production server
-	./scripts/start.sh -m production -d
+dev-backend: ## Start backend development server
+	pnpm --filter backend dev
+
+dev-ui: ## Start UI development server
+	pnpm --filter ui dev
+
+dev-docker: ## Start development server with Docker
+	cd backend && ./scripts/start.sh -m development
+
+prod: ## Start production server with Docker
+	cd backend && ./scripts/start.sh -m production -d
 
 start: ## Start services in background
 	docker-compose up -d
@@ -65,17 +86,17 @@ test-deploy: ## Test deploy endpoint (requires WEBHOOK_SECRET)
 
 setup: ## Initial setup - copy env template and install deps
 	@if [ ! -f .env ]; then \
-		cp .env.template .env; \
-		echo "Created .env file from template. Please edit it with your configuration."; \
+		cp .env.template .env 2>/dev/null || echo "No .env.template found, skipping..."; \
 	fi
-	npm install
+	pnpm install
+	@echo "Setup complete! Run 'make dev' to start development."
 
 # Development helpers
-dev-build: ## Build and start development environment
-	./scripts/start.sh -m development -b
+dev-build: ## Build and start development environment with Docker
+	cd backend && ./scripts/start.sh -m development -b
 
-prod-build: ## Build and start production environment
-	./scripts/start.sh -m production -b -d
+prod-build: ## Build and start production environment with Docker
+	cd backend && ./scripts/start.sh -m production -b -d
 
 # Docker helpers
 docker-logs: ## View Docker container logs
@@ -92,4 +113,11 @@ clean-logs: ## Clean up log files
 	rm -rf logs/*
 
 clean-dist: ## Clean built files
-	rm -rf dist/
+	rm -rf backend/dist/ ui/dist/
+
+clean-deps: ## Clean all node_modules
+	rm -rf node_modules backend/node_modules ui/node_modules
+
+clean-all-build: ## Clean all build artifacts and dependencies
+	pnpm run clean
+	rm -rf node_modules backend/node_modules ui/node_modules backend/dist ui/dist

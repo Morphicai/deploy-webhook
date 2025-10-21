@@ -1,0 +1,26 @@
+{
+  "name": "deploy-webhook-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Deploy Webhook Monorepo - Backend API & Frontend UI",
+  "scripts": {
+    "dev": "pnpm --parallel -r dev",
+    "dev:backend": "pnpm --filter backend dev",
+    "dev:ui": "pnpm --filter ui dev",
+    "build": "pnpm -r build",
+    "build:backend": "pnpm --filter backend build",
+    "build:ui": "pnpm --filter ui build",
+    "clean": "pnpm -r clean && rm -rf node_modules",
+    "install:all": "pnpm install",
+    "docker:build": "cd backend && ./scripts/build.sh",
+    "docker:start": "docker-compose up -d",
+    "docker:stop": "docker-compose down",
+    "docker:logs": "docker-compose logs -f"
+  },
+  "devDependencies": {},
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  }
+}
+

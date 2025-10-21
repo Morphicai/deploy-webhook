@@ -3,13 +3,14 @@ version: '3.8'
 services:
   deploy-webhook:
     build: 
-      context: .
+      context: ./backend
       dockerfile: Dockerfile
     container_name: deploy-webhook
     ports:
       - "${PORT:-9000}:9000"
     volumes:
       - ${DOCKER_SOCK_PATH:-/var/run/docker.sock}:${DOCKER_SOCK_PATH:-/var/run/docker.sock}
+      - ./data:/app/data
       - ./logs:/app/logs
     environment:
       - NODE_ENV=production
@@ -47,15 +48,16 @@ services:
   # Development service with hot reload
   deploy-webhook-dev:
     build: 
-      context: .
+      context: ./backend
       dockerfile: Dockerfile.dev
     container_name: deploy-webhook-dev
     ports:
       - "${DEV_PORT:-9001}:9000"
     volumes:
       - ${DOCKER_SOCK_PATH:-/var/run/docker.sock}:${DOCKER_SOCK_PATH:-/var/run/docker.sock}
-      - .:/app
+      - ./backend:/app
       - /app/node_modules
+      - ./data:/app/data
     environment:
       - NODE_ENV=development
       - PORT=9000

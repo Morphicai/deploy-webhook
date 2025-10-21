@@ -10,6 +10,28 @@ Docker Hub: https://hub.docker.com/repository/docker/focusbe/deploy-webhook/gene
 docker pull focusbe/deploy-webhook:latest
 ```
 
+## 📦 项目结构 (Monorepo)
+
+本项目采用 pnpm workspace 管理的 monorepo 结构：
+
+```
+deploy-webhook/
+├── backend/          # 后端 API 服务 (Node.js + TypeScript + Express)
+│   ├── src/         # TypeScript 源码
+│   ├── dist/        # 编译输出
+│   ├── scripts/     # 构建和部署脚本
+│   ├── Dockerfile   # 生产环境 Docker 镜像
+│   └── Dockerfile.dev  # 开发环境 Docker 镜像
+├── ui/              # 前端管理界面 (React + Vite + TailwindCSS)
+│   ├── src/         # React 源码
+│   └── dist/        # 构建输出
+├── data/            # 共享数据目录（数据库等）
+├── docker-compose.yml  # Docker 编排配置
+├── Makefile         # 快捷命令
+├── pnpm-workspace.yaml # pnpm workspace 配置
+└── package.json     # 根级依赖管理
+```
+
 ## 特性
 
 - 🔧 **宿主机 Docker 管理**：通过 Docker socket 操作宿主机容器
@@ -159,38 +181,82 @@ npm run dev
 
 若部署在服务器上，请将 `localhost:9000` 替换为实际的域名或 IP。
 
-## 开发与构建
+## 🚀 快速开始（本地开发）
 
-我们已提供官方镜像。如需本地开发/构建：
+### 前置要求
+
+- Node.js >= 18.0.0
+- pnpm >= 8.0.0 (推荐) 或 npm
+- Docker (可选，用于容器化部署)
+
+### 安装 pnpm (如果尚未安装)
 
 ```bash
-cp .env.example .env  # 首次使用时复制示例环境变量
-npm ci && npm run build
-docker build -t focusbe/deploy-webhook:dev .
+npm install -g pnpm
 ```
 
-## 开发
-
-### 本地开发
+### 开发步骤
 
 ```bash
+# 1. 克隆仓库
+git clone https://github.com/Morphicai/deploy-webhook.git
+cd deploy-webhook
+
+# 2. 安装所有依赖 (根目录 + backend + ui)
+pnpm install
+# 或使用 Makefile
+make install
+
+# 3. 启动开发服务器 (同时启动 backend 和 ui)
+pnpm dev
+# 或分别启动
+pnpm --filter backend dev  # 后端: http://localhost:9000
+pnpm --filter ui dev       # 前端: http://localhost:5173
+
+# 4. 构建项目
+pnpm build
+# 或分别构建
+pnpm --filter backend build
+pnpm --filter ui build
+```
+
+### 使用 Makefile (推荐)
+
+```bash
+# 查看所有可用命令
+make help
+
 # 安装依赖
-npm install
+make install
 
-# 启动开发服务器
-npm run dev
+# 启动所有开发服务器
+make dev
 
-# 构建项目
-npm run build
+# 仅启动后端
+make dev-backend
 
-# 启动生产服务器
-npm start
+# 仅启动前端
+make dev-ui
+
+# 构建所有项目
+make build
+
+# 构建 Docker 镜像
+make build-docker
+
+# 使用 Docker Compose 启动
+make start
+
+# 停止服务
+make stop
 ```
 
-### Docker开发
+## 🐳 Docker 开发
 
 ```bash
-# 启动开发环境
+# 使用 Docker Compose 启动开发环境
+make dev-docker
+# 或
 docker-compose --profile dev up -d
 
 # 查看日志
@@ -198,6 +264,20 @@ docker-compose logs -f deploy-webhook-dev
 
 # 停止服务
 docker-compose --profile dev down
+```
+
+## 🏗️ 生产构建
+
+```bash
+# 构建 Docker 镜像
+make build-docker
+
+# 或手动构建
+cd backend
+docker build -t deploy-webhook:latest .
+
+# 推送到仓库
+make build-docker-push REGISTRY=your-registry.com
 ```
 
 ## 安全考虑
