@@ -71,8 +71,20 @@ router.get('/', (req, res) => {
  *         description: Created or updated entry
  */
 router.post('/', (req, res) => {
-  const entry = upsertEnvEntry(req.body);
-  res.json({ success: true, data: entry });
+  try {
+    const entry = upsertEnvEntry(req.body);
+    res.json({ success: true, data: entry });
+  } catch (error) {
+    console.error('[deploy-webhook] Failed to create/update environment variable:', {
+      timestamp: new Date().toISOString(),
+      error: error instanceof Error ? error.message : String(error),
+      requestBody: req.body,
+    });
+    res.status(400).json({ 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Failed to create/update environment variable' 
+    });
+  }
 });
 
 /**

@@ -11,6 +11,15 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction): v
   const token = headerToken || (bearer[0] === 'Bearer' ? bearer[1] : undefined);
 
   if (!token) {
+    console.error('[deploy-webhook] Admin authentication failed - No token provided:', {
+      timestamp: new Date().toISOString(),
+      path: req.path,
+      method: req.method,
+      clientIp: req.ip || req.socket.remoteAddress,
+      hasHeaderToken: !!headerToken,
+      hasAuthorizationHeader: !!req.header('authorization'),
+      authorizationFormat: bearer[0] || 'none',
+    });
     res.status(401).json({ success: false, error: 'Unauthorized' });
     return;
   }
@@ -27,7 +36,18 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction): v
       next();
       return;
     }
-  } catch {}
+  } catch (error) {
+    console.error('[deploy-webhook] Admin authentication failed - JWT verification failed:', {
+      timestamp: new Date().toISOString(),
+      path: req.path,
+      method: req.method,
+      clientIp: req.ip || req.socket.remoteAddress,
+      tokenLength: token?.length || 0,
+      hasAdminToken: !!ADMIN_TOKEN,
+      adminTokenLength: ADMIN_TOKEN?.length || 0,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
 
   res.status(401).json({ success: false, error: 'Unauthorized' });
 }

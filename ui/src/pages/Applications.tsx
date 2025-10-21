@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Plus, RefreshCw } from 'lucide-react';
@@ -19,22 +20,33 @@ interface Application {
   status?: string;
 }
 
+interface Repository {
+  id: number;
+  name: string;
+  registry: string;
+  authType: string;
+  isDefault: boolean;
+}
+
 export const Applications: React.FC = () => {
   const { t } = useLanguage();
   const [applications, setApplications] = useState<Application[]>([]);
+  const [repositories, setRepositories] = useState<Repository[]>([]);
   const [loading, setLoading] = useState(true);
   const [showDeployForm, setShowDeployForm] = useState(false);
   const [deploying, setDeploying] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
+    image: '',
     version: '',
-    repo: '',
     port: '',
     containerPort: '',
+    repositoryId: '',
   });
 
   useEffect(() => {
     loadApplications();
+    loadRepositories();
   }, []);
 
   const loadApplications = async () => {
@@ -48,33 +60,63 @@ export const Applications: React.FC = () => {
     }
   };
 
+  const loadRepositories = async () => {
+    try {
+      const result = await api.getRepositories();
+      setRepositories(result.data || []);
+    } catch (error) {
+      console.error('Failed to load repositories:', error);
+    }
+  };
+
   const handleDeploy = async (e: React.FormEvent) => {
     e.preventDefault();
     setDeploying(true);
 
     try {
-      await api.deploy({
-        name: formData.name,
+      const payload: {
+        image: string;
+        version: string;
+        port: number;
+        containerPort?: number;
+        name?: string;
+        repositoryId?: number;
+      } = {
+        image: formData.image,
         version: formData.version,
-        repo: formData.repo,
         port: parseInt(formData.port),
         containerPort: formData.containerPort ? parseInt(formData.containerPort) : undefined,
-      });
+      };
+
+      // 如果填写了应用名称，则传递
+      if (formData.name.trim()) {
+        payload.name = formData.name.trim();
+      }
+
+      // 如果选择了仓库，则传递
+      if (formData.repositoryId) {
+        payload.repositoryId = parseInt(formData.repositoryId);
+      }
+
+      await api.deploy(payload);
 
       setShowDeployForm(false);
       setFormData({
         name: '',
+        image: '',
         version: '',
-        repo: '',
         port: '',
         containerPort: '',
+        repositoryId: '',
       });
       
       // Reload applications
       await loadApplications();
       alert(t('applications.deploySuccess'));
-    } catch (error: any) {
-      alert(error.message || 'Deployment failed');
+    } catch (error) {
+      const err = error as { response?: { data?: { error?: string } }; message?: string };
+      const errorMsg = err.response?.data?.error || err.message || 'Deployment failed';
+      alert(errorMsg);
     } finally {
       setDeploying(false);
     }
@@ -117,40 +159,69 @@ export const Applications: React.FC = () => {
             <form onSubmit={handleDeploy} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">{t('applications.name')} *</Label>
+                  <Label htmlFor="repository">Image Repository</Label>
+                  <Select
+                    value={formData.repositoryId || undefined}
+                    onValueChange={(value) => setFormData({ ...formData, repositoryId: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Default (Docker Hub)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {repositories.map((repo) => (
+                        <SelectItem key={repo.id} value={repo.id.toString()}>
+                          {repo.name} {repo.isDefault ? '(Default)' : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Leave unselected to use default registry (Docker Hub)
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="image">Image Name *</Label>
+                  <Input
+                    id="image"
+                    placeholder="nginx, library/nginx, or focusbe/morphixai"
+                    value={formData.image}
+                    onChange={(e) => setFormData({ ...formData, image: e.target.value })}
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Examples: nginx, library/nginx, myorg/myapp
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="name">Application Name</Label>
                   <Input
                     id="name"
-                    placeholder="my-app"
+                    placeholder="Optional - auto-generated from image"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    required
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Leave empty to auto-generate (e.g., focusbe/morphixai → focusbe-morphixai)
+                  </p>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="version">{t('applications.version')} *</Label>
+                  <Label htmlFor="version">{t('applications.version')}</Label>
                   <Input
                     id="version"
-                    placeholder="1.0.0"
+                    placeholder="latest (default), v1.0.0, stable"
                     value={formData.version}
                     onChange={(e) => setFormData({ ...formData, version: e.target.value })}
-                    required
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Leave empty to use "latest"
+                  </p>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="repo">{t('applications.repo')} *</Label>
-                  <Input
-                    id="repo"
-                    placeholder="registry.example.com/my-app"
-                    value={formData.repo}
-                    onChange={(e) => setFormData({ ...formData, repo: e.target.value })}
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="port">{t('applications.port')} *</Label>
+                  <Label htmlFor="port">Host Port *</Label>
                   <Input
                     id="port"
                     type="number"
@@ -162,11 +233,11 @@ export const Applications: React.FC = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="containerPort">{t('applications.containerPort')}</Label>
+                  <Label htmlFor="containerPort">Container Port</Label>
                   <Input
                     id="containerPort"
                     type="number"
-                    placeholder="3000"
+                    placeholder="80 (nginx), 3000 (node)"
                     value={formData.containerPort}
                     onChange={(e) => setFormData({ ...formData, containerPort: e.target.value })}
                   />

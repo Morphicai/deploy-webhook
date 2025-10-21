@@ -131,6 +131,13 @@ router.post('/', (req, res) => {
     const repository = createRepository(input);
     res.json({ success: true, data: repository });
   } catch (error) {
+    console.error('[deploy-webhook] Failed to create repository:', {
+      timestamp: new Date().toISOString(),
+      error: error instanceof Error ? error.message : String(error),
+      repositoryName: req.body?.name,
+      registry: req.body?.registry,
+      authType: req.body?.authType,
+    });
     const fail = buildErrorResponse(error);
     res.status(fail.code ?? 400).json(fail);
   }
@@ -189,6 +196,12 @@ router.put('/:id', (req, res) => {
     const repository = updateRepository(id, input);
     res.json({ success: true, data: repository });
   } catch (error) {
+    console.error('[deploy-webhook] Failed to update repository:', {
+      timestamp: new Date().toISOString(),
+      error: error instanceof Error ? error.message : String(error),
+      repositoryId: req.params.id,
+      updates: { name: req.body?.name, authType: req.body?.authType },
+    });
     const fail = buildErrorResponse(error);
     res.status(fail.code ?? 400).json(fail);
   }
@@ -222,8 +235,17 @@ router.post('/:id/set-default', (req, res) => {
     }
     
     setDefaultRepository(id);
+    console.log('[deploy-webhook] Default repository set:', {
+      timestamp: new Date().toISOString(),
+      repositoryId: id,
+    });
     res.json({ success: true, message: 'Default repository set successfully' });
   } catch (error) {
+    console.error('[deploy-webhook] Failed to set default repository:', {
+      timestamp: new Date().toISOString(),
+      error: error instanceof Error ? error.message : String(error),
+      repositoryId: req.params.id,
+    });
     const fail = buildErrorResponse(error);
     res.status(fail.code ?? 400).json(fail);
   }
@@ -257,8 +279,17 @@ router.delete('/:id', (req, res) => {
     }
     
     deleteRepository(id);
+    console.log('[deploy-webhook] Repository deleted:', {
+      timestamp: new Date().toISOString(),
+      repositoryId: id,
+    });
     res.json({ success: true });
   } catch (error) {
+    console.error('[deploy-webhook] Failed to delete repository:', {
+      timestamp: new Date().toISOString(),
+      error: error instanceof Error ? error.message : String(error),
+      repositoryId: req.params.id,
+    });
     const fail = buildErrorResponse(error);
     res.status(fail.code ?? 400).json(fail);
   }

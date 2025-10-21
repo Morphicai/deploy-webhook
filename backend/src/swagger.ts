@@ -33,11 +33,34 @@ const swaggerDefinition = {
       DeployRequest: {
         type: 'object',
         properties: {
-          name: { type: 'string', description: 'Container name used for the deployment.' },
-          version: { type: 'string', description: 'Image tag to deploy.' },
-          repo: { type: 'string', description: 'Image repository (without registry host).' },
-          port: { oneOf: [{ type: 'number' }, { type: 'string' }], description: 'Host port to expose.' },
-          containerPort: { oneOf: [{ type: 'number' }, { type: 'string' }], description: 'Container port exposed by the image.' },
+          name: { 
+            type: 'string', 
+            description: 'Container/application name (optional). If not provided, will be auto-generated from image name. Example: focusbe/morphixai → focusbe-morphixai' 
+          },
+          image: { 
+            type: 'string', 
+            description: 'Image name (required). Examples: nginx, library/nginx, focusbe/morphixai. Use with repositoryId to specify which registry to pull from.' 
+          },
+          version: { 
+            type: 'string', 
+            description: 'Image tag/version to deploy (optional, defaults to "latest"). Examples: latest, v1.0.0, stable' 
+          },
+          repo: { 
+            type: 'string', 
+            description: '[Deprecated] Use "image" field instead. Kept for backward compatibility.' 
+          },
+          port: { 
+            oneOf: [{ type: 'number' }, { type: 'string' }], 
+            description: 'Host port to expose.' 
+          },
+          containerPort: { 
+            oneOf: [{ type: 'number' }, { type: 'string' }], 
+            description: 'Container port exposed by the image.' 
+          },
+          repositoryId: {
+            type: 'number',
+            description: 'ID of the image repository to use. If not specified, uses the default repository or Docker Hub.'
+          },
           env: {
             type: 'object',
             additionalProperties: {
@@ -55,7 +78,8 @@ const swaggerDefinition = {
             description: 'Names of managed secrets to inject into the container.',
           },
         },
-        required: ['name', 'version', 'repo', 'port', 'containerPort'],
+        required: ['port', 'containerPort'],
+        description: 'Either "image" or "repo" must be provided. "name" is optional and will be auto-generated. "version" defaults to "latest" if not provided.',
       },
       DeployResponse: {
         type: 'object',

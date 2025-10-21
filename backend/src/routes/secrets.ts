@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, type Router as ExpressRouter } from 'express';
 import { buildErrorResponse } from '../utils/errors';
 import {
   createSecretRecord,
@@ -8,7 +8,7 @@ import {
 } from '../services/secretStore';
 import { requireAdmin } from '../middleware/adminAuth';
 
-const router = Router();
+const router: ExpressRouter = Router();
 
 router.use(requireAdmin);
 
@@ -67,6 +67,12 @@ router.post('/', (req, res) => {
     const created = createSecretRecord(req.body);
     res.status(201).json({ success: true, data: created });
   } catch (error) {
+    console.error('[deploy-webhook] Failed to create secret:', {
+      timestamp: new Date().toISOString(),
+      error: error instanceof Error ? error.message : String(error),
+      secretName: req.body?.name,
+      provider: req.body?.provider,
+    });
     const fail = buildErrorResponse(error);
     res.status(fail.code ?? 400).json(fail);
   }
@@ -108,6 +114,12 @@ router.put('/:id', (req, res) => {
     const updated = updateSecretRecord(id, req.body);
     res.json({ success: true, data: updated });
   } catch (error) {
+    console.error('[deploy-webhook] Failed to update secret:', {
+      timestamp: new Date().toISOString(),
+      error: error instanceof Error ? error.message : String(error),
+      secretId: req.params.id,
+      provider: req.body?.provider,
+    });
     const fail = buildErrorResponse(error);
     res.status(fail.code ?? 400).json(fail);
   }
@@ -141,6 +153,11 @@ router.delete('/:id', (req, res) => {
     removeSecretRecord(id);
     res.json({ success: true });
   } catch (error) {
+    console.error('[deploy-webhook] Failed to delete secret:', {
+      timestamp: new Date().toISOString(),
+      error: error instanceof Error ? error.message : String(error),
+      secretId: req.params.id,
+    });
     const fail = buildErrorResponse(error);
     res.status(fail.code ?? 400).json(fail);
   }

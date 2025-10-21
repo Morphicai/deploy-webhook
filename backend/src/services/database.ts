@@ -32,6 +32,7 @@ function ensureDatabase(): Database.Database {
     fs.mkdirSync(DB_DIR, { recursive: true });
   }
 
+  const isNewDatabase = !fs.existsSync(DB_FILE);
   const db = new Database(DB_FILE);
 
   db.exec(`
@@ -69,13 +70,16 @@ function ensureDatabase(): Database.Database {
     CREATE TABLE IF NOT EXISTS applications (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL UNIQUE,
-      repo TEXT NOT NULL,
-      version TEXT NOT NULL,
-      port INTEGER NOT NULL,
-      container_port INTEGER NOT NULL,
-      last_deployed_at TEXT NOT NULL,
+      image TEXT NOT NULL,
+      version TEXT,
+      repository_id INTEGER,
+      ports TEXT NOT NULL DEFAULT '[]',
+      env_vars TEXT NOT NULL DEFAULT '{}',
+      status TEXT NOT NULL DEFAULT 'stopped',
+      last_deployed_at TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (repository_id) REFERENCES repositories(id) ON DELETE SET NULL
     );
     CREATE TRIGGER IF NOT EXISTS applications_updated_at
     AFTER UPDATE ON applications
@@ -110,6 +114,20 @@ function ensureDatabase(): Database.Database {
     AFTER UPDATE ON repositories
     BEGIN
       UPDATE repositories SET updatedAt = datetime('now') WHERE id = NEW.id;
+    END;
+    CREATE TABLE IF NOT EXISTS image_whitelists (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      repository_id INTEGER,
+      image_pattern TEXT NOT NULL,
+      description TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (repository_id) REFERENCES repositories(id) ON DELETE CASCADE
+    );
+    CREATE TRIGGER IF NOT EXISTS image_whitelists_updated_at
+    AFTER UPDATE ON image_whitelists
+    BEGIN
+      UPDATE image_whitelists SET updated_at = datetime('now') WHERE id = NEW.id;
     END;
   `);
 

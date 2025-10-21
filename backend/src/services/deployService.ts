@@ -129,6 +129,11 @@ export class DeployService {
           password: repository.password,
           serveraddress: registry,
         };
+        this.log('Using username-password auth', { 
+          registry, 
+          username: repository.username,
+          repositoryName: repository.name,
+        });
       } else if (repository.authType === 'token' && repository.token) {
         // Docker Hub PAT: 需要提供用户名 + Token
         // GCR/其他 OAuth2: 使用 oauth2accesstoken + Token
@@ -141,6 +146,11 @@ export class DeployService {
             password: repository.token,
             serveraddress: registry,
           };
+          this.log('Using Docker Hub PAT auth', { 
+            registry, 
+            username: repository.username,
+            repositoryName: repository.name,
+          });
         } else {
           // GCR 等 OAuth2 认证
           authconfig = {
@@ -148,6 +158,10 @@ export class DeployService {
             password: repository.token,
             serveraddress: registry,
           };
+          this.log('Using OAuth2 token auth', { 
+            registry,
+            repositoryName: repository.name,
+          });
         }
       }
     } else if (deployConfig.dockerUsername && deployConfig.dockerPassword) {
@@ -157,15 +171,46 @@ export class DeployService {
         password: deployConfig.dockerPassword,
         serveraddress: registry,
       };
+      this.log('Using legacy config auth', { 
+        registry, 
+        username: deployConfig.dockerUsername,
+      });
+    } else {
+      this.log('No authentication configured for registry', { registry });
     }
 
-    await new Promise<void>((resolve, reject) => {
-      this.docker.pull(fullImage, { authconfig }, (err, stream) => {
-        if (err) return reject(err);
-        if (!stream) return reject(new Error('docker pull returned no stream'));
-        this.docker.modem.followProgress(stream, (err2) => (err2 ? reject(err2) : resolve()));
+    try {
+      await new Promise<void>((resolve, reject) => {
+        this.docker.pull(fullImage, { authconfig }, (err, stream) => {
+          if (err) return reject(err);
+          if (!stream) return reject(new Error('docker pull returned no stream'));
+          this.docker.modem.followProgress(stream, (err2) => (err2 ? reject(err2) : resolve()));
+        });
       });
-    });
+    } catch (error: any) {
+      // 检查是否是认证错误 (401)
+      const errorMessage = error?.message || String(error);
+      const isAuthError = errorMessage.includes('401') || 
+                          errorMessage.includes('unauthorized') || 
+                          errorMessage.includes('authentication') ||
+                          errorMessage.includes('Authentication required');
+      
+      if (isAuthError) {
+        this.logError('Docker image pull failed - Authentication error (401)', error, {
+          fullImage,
+          registry,
+          authType: repository?.authType || 'legacy-config',
+          repositoryName: repository?.name || 'default',
+          hasAuthConfig: !!authconfig,
+          hasUsername: !!authconfig?.username,
+          hasPassword: !!authconfig?.password,
+          usernameLength: authconfig?.username?.length || 0,
+          passwordLength: authconfig?.password?.length || 0,
+          serverAddress: authconfig?.serveraddress || 'none',
+        });
+      }
+      throw error;
+    }
   }
 
   private async stopAndRemoveContainer(containerName: string): Promise<void> {
@@ -198,12 +243,36 @@ export class DeployService {
     }
   }
 
+  /**
+   * 从镜像名称生成应用名称
+   * 例如：
+   * - nginx -> nginx
+   * - library/nginx -> library-nginx
+   * - focusbe/morphixai -> focusbe-morphixai
+   * - gcr.io/project/image -> gcr-io-project-image
+   */
+  private generateAppName(imageName: string): string {
+    return imageName
+      .replace(/[/:]/g, '-')  // 替换 / 和 : 为 -
+      .replace(/[^a-zA-Z0-9-]/g, '')  // 移除其他特殊字符
+      .replace(/-+/g, '-')  // 多个连续的 - 合并为一个
+      .replace(/^-|-$/g, '')  // 移除首尾的 -
+      .toLowerCase();
+  }
+
   async deploy(params: DeployRequest): Promise<DeployResponse> {
     const deploymentId = this.generateDeploymentId();
     const startedAt = new Date().toISOString();
-    const name = String(params.name);
-    const repo = String(params.repo);
-    const version = String(params.version);
+    
+    // 向后兼容：image 优先，其次是 repo
+    const image = String(params.image || params.repo);
+    
+    // 自动生成应用名称（如果未提供）
+    const name = params.name ? String(params.name) : this.generateAppName(image);
+    
+    // 如果未提供版本，默认使用 "latest"
+    const version = params.version ? String(params.version) : 'latest';
+    
     const port = Number(params.port);
     const containerPort = Number(params.containerPort);
 
@@ -224,15 +293,20 @@ export class DeployService {
     if (repository) {
       // 从 registry URL 中提取主机名
       const registryHost = new URL(repository.registry).hostname;
-      fullImage = `${registryHost}/${repo}:${version}`;
+      fullImage = `${registryHost}/${image}:${version}`;
       this.log('Using repository', { repositoryName: repository.name, registry: registryHost });
     } else {
       // 向后兼容：使用配置文件中的 registryHost
-      fullImage = `${deployConfig.registryHost}/${repo}:${version}`;
+      // 如果 image 中已经包含完整路径（如 docker.io/nginx），则不添加前缀
+      if (image.includes('.') || image.includes('/') && !image.startsWith('library/')) {
+        fullImage = `${image}:${version}`;
+      } else {
+        fullImage = `${deployConfig.registryHost}/${image}:${version}`;
+      }
     }
 
     try {
-      this.log('Starting deployment', { deploymentId, name, repo, version, port, containerPort });
+      this.log('Starting deployment', { deploymentId, name, image, version, port, containerPort, generatedName: !params.name });
       this.log('Pulling image', { fullImage });
       await this.pullImage(fullImage, repository);
       this.log('Image pull completed', { fullImage });
@@ -265,18 +339,19 @@ export class DeployService {
       this.log('Starting container', { name });
       await container.start();
 
-      upsertApplication({ name, repo, version, port, containerPort });
+      // 保存应用信息时使用 image 字段
+      upsertApplication({ name, repo: image, version, port, containerPort });
 
       await this.pruneImagesIfNeeded();
 
       const result: DeployResponse = { success: true, code: 0, stdout: `deploymentId=${deploymentId}`, stderr: '', deploymentId };
       this.log('Deployment completed', { deploymentId, name });
-      await this.sendCallback({ ...result, startedAt, finishedAt: new Date().toISOString(), params: { name, repo, version, port, containerPort } });
+      await this.sendCallback({ ...result, startedAt, finishedAt: new Date().toISOString(), params: { name, image, version, port, containerPort } });
       return result;
     } catch (error: any) {
-      this.logError('Deployment failed', error, { deploymentId, name, repo, version });
+      this.logError('Deployment failed', error, { deploymentId, name, image, version });
       const fail: DeployResponse = buildErrorResponse(error, { deploymentId });
-      await this.sendCallback({ ...fail, startedAt, finishedAt: new Date().toISOString(), params: { name, repo, version, port, containerPort } });
+      await this.sendCallback({ ...fail, startedAt, finishedAt: new Date().toISOString(), params: { name, image, version, port, containerPort } });
       return fail;
     }
   }

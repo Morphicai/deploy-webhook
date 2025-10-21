@@ -60,25 +60,116 @@ class ApiService {
 
   // Deploy
   async deploy(payload: {
-    name: string;
+    name?: string;  // 可选，不填则自动生成
+    image: string;  // 镜像名称，如 nginx, library/nginx, focusbe/morphixai
     version: string;
-    repo: string;
     port: number;
     containerPort?: number;
     env?: Record<string, string>;
     secretRefs?: string[];
+    repositoryId?: number;  // 仓库ID，可选
   }) {
-    const { data } = await this.client.post('/deploy', payload, {
-      headers: {
-        'x-webhook-secret': import.meta.env.VITE_WEBHOOK_SECRET || '',
-      },
-    });
+    // 注意：已登录用户不需要提供 webhook secret
+    // 后端会自动使用 Authorization header 中的 token 进行认证
+    const { data } = await this.client.post('/deploy', payload);
+    return data;
+  }
+
+  // Repositories
+  async getRepositories() {
+    const { data } = await this.client.get('/api/repositories');
+    return data;
+  }
+
+  async getRepository(id: number) {
+    const { data } = await this.client.get(`/api/repositories/${id}`);
+    return data;
+  }
+
+  async createRepository(payload: any) {
+    const { data } = await this.client.post('/api/repositories', payload);
+    return data;
+  }
+
+  async updateRepository(id: number, payload: any) {
+    const { data } = await this.client.put(`/api/repositories/${id}`, payload);
+    return data;
+  }
+
+  async deleteRepository(id: number) {
+    const { data } = await this.client.delete(`/api/repositories/${id}`);
+    return data;
+  }
+
+  async setDefaultRepository(id: number) {
+    const { data } = await this.client.post(`/api/repositories/${id}/set-default`);
+    return data;
+  }
+
+  // Image Whitelist
+  async getImageWhitelists() {
+    const { data } = await this.client.get('/api/image-whitelist');
+    return data;
+  }
+
+  async createImageWhitelist(payload: any) {
+    const { data } = await this.client.post('/api/image-whitelist', payload);
+    return data;
+  }
+
+  async updateImageWhitelist(id: number, payload: any) {
+    const { data } = await this.client.put(`/api/image-whitelist/${id}`, payload);
+    return data;
+  }
+
+  async deleteImageWhitelist(id: number) {
+    const { data } = await this.client.delete(`/api/image-whitelist/${id}`);
     return data;
   }
 
   // Applications
   async getApplications() {
     const { data } = await this.client.get('/api/applications');
+    return data;
+  }
+
+  async getApplication(id: number) {
+    const { data } = await this.client.get(`/api/applications/${id}`);
+    return data;
+  }
+
+  async createApplication(payload: any) {
+    const { data } = await this.client.post('/api/applications', payload);
+    return data;
+  }
+
+  async updateApplication(id: number, payload: any) {
+    const { data } = await this.client.put(`/api/applications/${id}`, payload);
+    return data;
+  }
+
+  async deleteApplication(id: number) {
+    const { data } = await this.client.delete(`/api/applications/${id}`);
+    return data;
+  }
+
+  async deployApplication(id: number) {
+    const { data } = await this.client.post(`/api/applications/${id}/deploy`);
+    return data;
+  }
+
+  async startContainer(id: number) {
+    const { data } = await this.client.post(`/api/applications/${id}/start`);
+    return data;
+  }
+
+  async stopContainer(id: number) {
+    const { data} = await this.client.post(`/api/applications/${id}/stop`);
+    return data;
+  }
+
+  async restartContainer(id: number) {
+    const { data } = await this.client.post(`/api/applications/${id}/restart`);
     return data;
   }
 
