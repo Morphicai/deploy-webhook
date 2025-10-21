@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -7,7 +7,7 @@ import { Label } from '../components/ui/label';
 import { Copy, RefreshCw, Eye, EyeOff, Check } from 'lucide-react';
 
 export const Settings: React.FC = () => {
-  const { t } = useTranslation();
+  const { t } = useLanguage();
   const [webhookSecret, setWebhookSecret] = useState('');
   const [showSecret, setShowSecret] = useState(false);
   const [copied, setCopied] = useState(false);

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -7,7 +7,7 @@ import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Badge } from '../components/ui/badge';
-import { Plus, Edit, Trash2, Star, StarOff, Eye, EyeOff } from 'lucide-react';
+import { Plus, Edit, Trash2, Star, Eye, EyeOff } from 'lucide-react';
 import api from '../services/api';
 
 interface Repository {
@@ -34,7 +34,7 @@ interface RepositoryFormData {
 }
 
 export const Repositories: React.FC = () => {
-  const { t } = useTranslation();
+  const { t } = useLanguage();
   const [repositories, setRepositories] = useState<Repository[]>([]);
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
