@@ -9,6 +9,7 @@
     "start": "node dist/index.js",
     "dev": "PORT=9000 nodemon --exec ts-node src/index.ts",
     "dev:build": "tsc --watch",
+    "mcp": "node dist/mcp/server.js",
     "clean": "rm -rf dist",
     "docker:build": "docker build -t deploy-webhook .",
     "docker:run": "docker run --rm -p 9000:9000 -v /var/run/docker.sock:/var/run/docker.sock deploy-webhook"
