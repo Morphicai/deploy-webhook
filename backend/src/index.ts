@@ -8,6 +8,7 @@ import { DeployRequest, HealthResponse } from './types';
 import docsRouter from './routes/docs';
 import envRouter from './routes/env';
 import secretRouter from './routes/secrets';
+import secretProvidersRouter from './routes/secretProviders';
 import applicationsRouter from './routes/applications';
 import authRouter from './routes/auth';
 import webhooksRouter from './routes/webhooks';
@@ -36,6 +37,7 @@ if (process.env.NODE_ENV !== 'production') {
 
 // Admin API routes
 app.use('/api/secrets', secretRouter);
+app.use('/api/secret-providers', secretProvidersRouter);
 app.use('/api/env', envRouter);
 app.use('/api/applications', applicationsRouter);
 app.use('/api/domains', domainsRouter);

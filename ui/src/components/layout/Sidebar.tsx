@@ -10,7 +10,8 @@ import {
   Database,
   Server,
   KeyRound,
-  Plug
+  Plug,
+  Webhook
 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -64,6 +65,12 @@ export const Sidebar: React.FC = () => {
       path: '/api-keys',
       icon: <KeyRound className="w-5 h-5" />,
       translationKey: 'nav.apiKeys',
+    },
+    {
+      name: t('nav.webhooks'),
+      path: '/webhooks',
+      icon: <Webhook className="w-5 h-5" />,
+      translationKey: 'nav.webhooks',
     },
     {
       name: t('nav.mcpSetup'),

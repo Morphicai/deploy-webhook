@@ -50,3 +50,75 @@ export interface DeployConfig {
   pruneImages: boolean;
   pruneStrategy: 'dangling' | 'none';
 }
+
+// Secret Provider Types
+export type SecretProviderType = 
+  | 'infisical' 
+  | 'aws-secrets-manager' 
+  | 'hashicorp-vault' 
+  | 'azure-keyvault' 
+  | 'gcp-secret-manager';
+
+export interface SecretProviderConfig {
+  // Infisical
+  clientId?: string;
+  clientSecret?: string;
+  projectId?: string;
+  environment?: string;
+  secretPath?: string;
+  siteUrl?: string;
+  
+  // AWS Secrets Manager
+  region?: string;
+  accessKeyId?: string;
+  secretAccessKey?: string;
+  secretName?: string;
+  prefix?: string;
+  
+  // HashiCorp Vault
+  address?: string;
+  token?: string;
+  namespace?: string;
+  path?: string;
+  mountPath?: string;
+  
+  // Azure Key Vault
+  vaultUrl?: string;
+  tenantId?: string;
+  
+  // GCP Secret Manager
+  credentials?: string;
+}
+
+export interface SecretProvider {
+  id: number;
+  name: string;
+  type: SecretProviderType;
+  config: SecretProviderConfig;
+  enabled: boolean;
+  autoSync: boolean;
+  lastSyncAt: string | null;
+  lastSyncStatus: 'success' | 'failed' | null;
+  lastSyncError: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SyncResult {
+  success: boolean;
+  providerId: number;
+  providerName: string;
+  secretsCount: number;
+  error?: string;
+  syncedSecrets?: Array<{ key: string; synced: boolean; error?: string }>;
+}
+
+export interface SecretSyncRecord {
+  id: number;
+  providerId: number;
+  status: 'success' | 'failed' | 'in_progress';
+  secretsCount: number;
+  errorMessage: string | null;
+  startedAt: string;
+  completedAt: string | null;
+}

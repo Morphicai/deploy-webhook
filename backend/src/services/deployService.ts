@@ -10,6 +10,7 @@ import http from 'http';
 import { buildEnvironmentForProject } from './envStore';
 import { upsertApplication } from './applicationStore';
 import { getRepositoryById, getDefaultRepository, type RepositoryRecord } from './repositoryStore';
+import { syncAllAutoSyncProviders } from './secretSyncService';
 
 function postJson(urlString: string, body: unknown, headers: Record<string, string> = {}): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -307,6 +308,28 @@ export class DeployService {
 
     try {
       this.log('Starting deployment', { deploymentId, name, image, version, port, containerPort, generatedName: !params.name });
+      
+      // 在部署前自动同步秘钥
+      this.log('Syncing secrets from auto-sync providers');
+      try {
+        const syncResults = await syncAllAutoSyncProviders();
+        const successCount = syncResults.filter(r => r.success).length;
+        const totalCount = syncResults.length;
+        if (totalCount > 0) {
+          this.log(`Secret sync completed: ${successCount}/${totalCount} successful`, {
+            results: syncResults.map(r => ({
+              provider: r.providerName,
+              success: r.success,
+              secretsCount: r.secretsCount,
+              error: r.error,
+            })),
+          });
+        }
+      } catch (syncError) {
+        // 秘钥同步失败不应阻止部署，但需要记录日志
+        this.logError('Secret sync failed, continuing with deployment', syncError);
+      }
+      
       this.log('Pulling image', { fullImage });
       await this.pullImage(fullImage, repository);
       this.log('Image pull completed', { fullImage });

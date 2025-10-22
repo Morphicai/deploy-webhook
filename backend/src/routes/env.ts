@@ -27,17 +27,17 @@ router.use(requireAdmin);
  *           type: string
  *           enum: [global, project]
  *       - in: query
- *         name: projectName
+ *         name: projectId
  *         schema:
- *           type: string
+ *           type: integer
  *     responses:
  *       '200':
  *         description: Environment variable entries
  */
 router.get('/', (req, res) => {
   const scope = (req.query.scope as 'global' | 'project' | undefined);
-  const projectName = req.query.projectName as string | undefined;
-  res.json({ success: true, data: listEnvEntries(scope, projectName) });
+  const projectId = req.query.projectId ? Number(req.query.projectId) : undefined;
+  res.json({ success: true, data: listEnvEntries(scope, projectId) });
 });
 
 /**
@@ -60,8 +60,9 @@ router.get('/', (req, res) => {
  *               scope:
  *                 type: string
  *                 enum: [global, project]
- *               projectName:
- *                 type: string
+ *               projectId:
+ *                 type: integer
+ *                 description: Required when scope is 'project'
  *               key:
  *                 type: string
  *               value:
@@ -109,9 +110,9 @@ router.post('/', (req, res) => {
  *         schema:
  *           type: string
  *       - in: query
- *         name: projectName
+ *         name: projectId
  *         schema:
- *           type: string
+ *           type: integer
  *     responses:
  *       '200':
  *         description: Entry removed
@@ -119,17 +120,19 @@ router.post('/', (req, res) => {
 router.delete('/', (req, res) => {
   const scope = req.query.scope as 'global' | 'project';
   const key = req.query.key as string;
-  const projectName = req.query.projectName as string | undefined;
+  const projectId = req.query.projectId ? Number(req.query.projectId) : undefined;
   if (!scope || !key) {
     return res.status(400).json({ success: false, error: 'Missing scope or key' });
   }
-  deleteEnvEntry(scope, key, projectName);
+  deleteEnvEntry(scope, key, projectId);
   res.json({ success: true });
 });
 
-router.get('/project/:name', (req, res) => {
-  const projectName = req.params.name;
-  const merged = buildEnvironmentForProject(projectName);
+router.get('/project/:identifier', (req, res) => {
+  const identifier = req.params.identifier;
+  // 支持通过 ID 或名称查询
+  const projectIdentifier = /^\d+$/.test(identifier) ? Number(identifier) : identifier;
+  const merged = buildEnvironmentForProject(projectIdentifier as any);
   res.json({ success: true, data: merged });
 });
 

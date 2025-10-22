@@ -11,12 +11,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../components/ui/select';
-import { Badge } from '../components/ui/badge';
+// import { Badge } from '../components/ui/badge';
 import { Copy, Download, ExternalLink, CheckCircle, AlertCircle, Plus, Eye, EyeOff, Key } from 'lucide-react';
 import { api } from '../services/api';
 import { Link } from 'react-router-dom';
 
-type Platform = 'macos' | 'windows' | 'linux';
 type Client = 'claude' | 'cursor';
 
 interface APIKey {
@@ -29,8 +28,7 @@ interface APIKey {
 }
 
 export const MCPSetup: React.FC = () => {
-  const [platform, setPlatform] = useState<Platform>('macos');
-  const [client, setClient] = useState<Client>('claude');
+  const [client] = useState<Client>('claude');
   const [apiKeys, setApiKeys] = useState<APIKey[]>([]);
   const [selectedKeyId, setSelectedKeyId] = useState<number | null>(null);
   const [newKeyName, setNewKeyName] = useState('MCP Access');
@@ -41,19 +39,9 @@ export const MCPSetup: React.FC = () => {
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // 自动检测操作系统和服务器 URL
+  // 自动检测服务器 URL（固定指向 3001）
   useEffect(() => {
-    const userAgent = window.navigator.userAgent.toLowerCase();
-    if (userAgent.includes('mac')) {
-      setPlatform('macos');
-    } else if (userAgent.includes('win')) {
-      setPlatform('windows');
-    } else if (userAgent.includes('linux')) {
-      setPlatform('linux');
-    }
-
-    // 设置服务器 URL（使用当前域名）
-    setServerUrl(`${window.location.protocol}//${window.location.host}/api/mcp/sse`);
+    setServerUrl(`${window.location.protocol}//${window.location.hostname}:3001/api/mcp/sse`);
   }, []);
 
   // 加载 API Keys
@@ -95,49 +83,27 @@ export const MCPSetup: React.FC = () => {
       
       // 自动选择新创建的 key
       setSelectedKeyId(response.data.id);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to create API key:', error);
-      alert(error.response?.data?.error || 'Failed to create API key');
+      const e = error as { response?: { data?: { error?: string } }; message?: string };
+      alert(e?.response?.data?.error || e?.message || 'Failed to create API key');
     } finally {
       setCreatingKey(false);
     }
   };
 
-  // 获取配置文件路径
-  const getConfigPath = () => {
-    if (client === 'claude') {
-      switch (platform) {
-        case 'macos':
-          return '~/Library/Application Support/Claude/claude_desktop_config.json';
-        case 'windows':
-          return '%APPDATA%\\Claude\\claude_desktop_config.json';
-        case 'linux':
-          return '~/.config/Claude/claude_desktop_config.json';
-      }
-    } else {
-      // Cursor
-      switch (platform) {
-        case 'macos':
-          return '~/Library/Application Support/Cursor/User/globalStorage/settings.json';
-        case 'windows':
-          return '%APPDATA%\\Cursor\\User\\globalStorage\\settings.json';
-        case 'linux':
-          return '~/.config/Cursor/User/globalStorage/settings.json';
-      }
-    }
-  };
+  // 已移除本地路径逻辑
 
-  // 生成配置 JSON（基于 SSE）
+  // 生成配置 JSON（基于 SSE，使用 Header 方式传递 API Key）
   const generateConfig = () => {
-    const apiKey = newlyCreatedKey || (selectedKeyId ? 'your-api-key-here' : 'create-api-key-first');
-    
-    // 将 API Key 作为 URL 参数传递（更通用的方式）
-    const urlWithApiKey = `${serverUrl}?apiKey=${apiKey}`;
-    
+    const apiKeyHeader = newlyCreatedKey || (selectedKeyId ? 'dw_your_api_key_here' : 'create-api-key-first');
     const config = {
       mcpServers: {
         'deploy-webhook': {
-          url: urlWithApiKey,
+          url: serverUrl,
+          headers: {
+            'X-API-Key': apiKeyHeader,
+          },
         },
       },
     };
@@ -170,21 +136,10 @@ export const MCPSetup: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
-  // 打开配置文件夹命令
-  const getOpenCommand = () => {
-    const basePath = getConfigPath().split('/').slice(0, -1).join('/');
-    switch (platform) {
-      case 'macos':
-        return `open "${basePath}"`;
-      case 'windows':
-        return `explorer "${basePath.replace(/\//g, '\\')}"`;
-      case 'linux':
-        return `xdg-open "${basePath}"`;
-    }
-  };
+  // 已移除打开命令逻辑
 
   const selectedKey = apiKeys.find(k => k.id === selectedKeyId);
-  const hasValidKey = newlyCreatedKey || selectedKeyId;
+  const hasValidKey = Boolean(newlyCreatedKey || selectedKeyId);
 
   return (
     <div className="space-y-6">
@@ -196,56 +151,12 @@ export const MCPSetup: React.FC = () => {
         </p>
       </div>
 
-      {/* 配置选择 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>1. Select Your AI Client</CardTitle>
-          <CardDescription>
-            Choose your preferred AI client and operating system
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>AI Client</Label>
-              <Select value={client} onValueChange={(value: Client) => setClient(value)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="claude">Claude Desktop</SelectItem>
-                  <SelectItem value="cursor">Cursor IDE</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Operating System</Label>
-              <Select value={platform} onValueChange={(value: Platform) => setPlatform(value)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="macos">macOS</SelectItem>
-                  <SelectItem value="windows">Windows</SelectItem>
-                  <SelectItem value="linux">Linux</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-800 p-4">
-            <p className="text-sm text-blue-800 dark:text-blue-200">
-              📁 Config file: <code className="font-mono text-xs">{getConfigPath()}</code>
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      {/* 配置选择 - 已移除（使用下方外链指南） */}
 
       {/* API Key 管理 */}
       <Card>
         <CardHeader>
-          <CardTitle>2. API Key for Authentication</CardTitle>
+          <CardTitle>1. API Key for Authentication</CardTitle>
           <CardDescription>
             Select an existing API key or create a new one for secure access
           </CardDescription>
@@ -263,6 +174,7 @@ export const MCPSetup: React.FC = () => {
                     value={selectedKeyId?.toString() || ''} 
                     onValueChange={(value) => {
                       setSelectedKeyId(parseInt(value));
+                      // 清空“新创建的 Key”，并将其从 UI 中隐藏
                       setNewlyCreatedKey(null);
                     }}
                   >
@@ -282,6 +194,8 @@ export const MCPSetup: React.FC = () => {
                       Selected: {selectedKey.keyPrefix}... | Permission: {selectedKey.permission} | Created: {new Date(selectedKey.createdAt).toLocaleDateString()}
                     </p>
                   )}
+
+                  {/* 仅支持选择或新建，不再支持手动粘贴 API Key */}
                 </div>
               )}
 
@@ -354,7 +268,7 @@ export const MCPSetup: React.FC = () => {
       {/* 生成的配置 */}
       <Card>
         <CardHeader>
-          <CardTitle>3. Configuration (Copy & Paste)</CardTitle>
+          <CardTitle>2. Configuration (Copy & Paste)</CardTitle>
           <CardDescription>
             This configuration uses SSE (Server-Sent Events) for remote access - no local setup required!
           </CardDescription>
@@ -400,6 +314,31 @@ export const MCPSetup: React.FC = () => {
             </div>
           </div>
 
+          <div className="mt-3 space-y-2">
+            <p className="text-xs text-muted-foreground">
+              Endpoint: <code className="font-mono">{serverUrl}</code>
+            </p>
+            <details className="rounded-lg border p-3">
+              <summary className="text-sm font-medium cursor-pointer">
+                Alternative: Header-based config (recommended for production)
+              </summary>
+              <div className="mt-2">
+                <pre className="bg-muted p-3 rounded-lg text-xs overflow-x-auto">
+                  <code>{JSON.stringify({
+                    mcpServers: {
+                      'deploy-webhook': {
+                        url: serverUrl,
+                        headers: {
+                          'X-API-Key': 'dw_your_api_key_here',
+                        },
+                      },
+                    },
+                  }, null, 2)}</code>
+                </pre>
+              </div>
+            </details>
+          </div>
+
           {!hasValidKey && (
             <div className="rounded-lg border border-yellow-200 bg-yellow-50 dark:bg-yellow-950 dark:border-yellow-800 p-4">
               <div className="flex gap-2">
@@ -412,7 +351,7 @@ export const MCPSetup: React.FC = () => {
           )}
 
           <div className="rounded-lg border border-green-200 bg-green-50 dark:bg-green-950 dark:border-green-800 p-4">
-            <p className="text-sm text-green-800 dark:text-green-200">
+            <div className="text-sm text-green-800 dark:text-green-200">
               <strong>✨ Remote Connection Benefits:</strong>
               <ul className="mt-2 ml-4 space-y-1">
                 <li>• No need to configure local paths</li>
@@ -421,79 +360,48 @@ export const MCPSetup: React.FC = () => {
                 <li>• Easy to switch between environments</li>
                 <li>• <strong>API Key in URL</strong> - Maximum compatibility with all MCP clients</li>
               </ul>
-            </p>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* 安装步骤 */}
+      {/* 安装步骤 - 已移除（使用下方外链指南） */}
+
+      {/* 外链：客户端配置指南 */}
       <Card>
         <CardHeader>
-          <CardTitle>4. Installation Steps</CardTitle>
+          <CardTitle>3. Client Setup </CardTitle>
           <CardDescription>
-            Just 3 simple steps to complete the setup
+            How to configure popular MCP clients
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
-          {/* 步骤 1 */}
-          <div className="flex gap-4">
-            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-semibold">
-              1
-            </div>
-            <div className="flex-1 space-y-2">
-              <h4 className="font-semibold">Open config file</h4>
-              <p className="text-sm text-muted-foreground">
-                Navigate to: <code className="font-mono text-xs">{getConfigPath()}</code>
-              </p>
-              <div className="bg-muted p-3 rounded-lg">
-                <code className="text-sm">{getOpenCommand()}</code>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  navigator.clipboard.writeText(getOpenCommand());
-                }}
-                className="gap-2"
-              >
-                <Copy className="h-4 w-4" />
-                Copy command
-              </Button>
-            </div>
-          </div>
-
-          {/* 步骤 2 */}
-          <div className="flex gap-4">
-            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-semibold">
-              2
-            </div>
-            <div className="flex-1 space-y-2">
-              <h4 className="font-semibold">Paste configuration</h4>
-              <p className="text-sm text-muted-foreground">
-                {client === 'claude' 
-                  ? 'If the file exists, merge the "mcpServers" section. If not, create a new file with the configuration above.'
-                  : 'Add the MCP server configuration to your Cursor settings.'}
-              </p>
-            </div>
-          </div>
-
-          {/* 步骤 3 */}
-          <div className="flex gap-4">
-            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-semibold">
-              3
-            </div>
-            <div className="flex-1 space-y-2">
-              <h4 className="font-semibold">Restart {client === 'claude' ? 'Claude Desktop' : 'Cursor'}</h4>
-              <p className="text-sm text-muted-foreground">
-                Completely quit and reopen the application for changes to take effect
-              </p>
-              <div className="flex gap-2">
-                <Badge variant="outline">
-                  {platform === 'macos' ? '⌘+Q' : platform === 'windows' ? 'Alt+F4' : 'Ctrl+Q'}
-                </Badge>
-                <span className="text-sm text-muted-foreground">to quit</span>
-              </div>
-            </div>
+        <CardContent className="space-y-2">
+          <a
+            href="https://www.cursor.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-primary hover:underline"
+          >
+            Cursor IDE Setup
+          </a>
+          <a
+            href="https://www.anthropic.com/claude"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block text-sm text-primary hover:underline"
+          >
+            Claude Desktop Setup
+          </a>
+          <a
+            href="https://modelcontextprotocol.io"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block text-sm text-primary hover:underline"
+          >
+            MCP Official Documentation
+          </a>
+          <div className="text-xs text-muted-foreground">
+            Trace / Codex / Clade: please refer to their official docs or MCP guide above.
           </div>
         </CardContent>
       </Card>
@@ -501,7 +409,7 @@ export const MCPSetup: React.FC = () => {
       {/* 测试连接 */}
       <Card>
         <CardHeader>
-          <CardTitle>5. Test Your Connection</CardTitle>
+          <CardTitle>4. Test Your Connection</CardTitle>
           <CardDescription>
             Verify that everything is working correctly
           </CardDescription>

@@ -148,6 +148,90 @@ const swaggerDefinition = {
           },
         },
       },
+      SecretProvider: {
+        type: 'object',
+        properties: {
+          id: { type: 'integer' },
+          name: { type: 'string' },
+          type: {
+            type: 'string',
+            enum: ['infisical', 'aws-secrets-manager', 'hashicorp-vault', 'azure-keyvault', 'gcp-secret-manager'],
+          },
+          config: {
+            type: 'object',
+            description: 'Provider-specific configuration (structure varies by type)',
+            additionalProperties: true,
+          },
+          enabled: { type: 'boolean' },
+          autoSync: { type: 'boolean', description: 'Whether to automatically sync secrets before deployments' },
+          lastSyncAt: { type: 'string', format: 'date-time', nullable: true },
+          lastSyncStatus: { 
+            type: 'string', 
+            enum: ['success', 'failed'], 
+            nullable: true 
+          },
+          lastSyncError: { type: 'string', nullable: true },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' },
+        },
+        required: ['id', 'name', 'type', 'config', 'enabled', 'autoSync'],
+      },
+      SecretProviderCreateRequest: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', minLength: 2, maxLength: 128 },
+          type: {
+            type: 'string',
+            enum: ['infisical', 'aws-secrets-manager', 'hashicorp-vault', 'azure-keyvault', 'gcp-secret-manager'],
+          },
+          config: {
+            type: 'object',
+            description: 'Provider-specific configuration',
+            additionalProperties: true,
+          },
+          enabled: { type: 'boolean', default: true },
+          autoSync: { type: 'boolean', default: false, description: 'Enable automatic sync before deployments' },
+        },
+        required: ['name', 'type', 'config'],
+      },
+      SecretProviderUpdateRequest: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', minLength: 2, maxLength: 128 },
+          type: {
+            type: 'string',
+            enum: ['infisical', 'aws-secrets-manager', 'hashicorp-vault', 'azure-keyvault', 'gcp-secret-manager'],
+          },
+          config: {
+            type: 'object',
+            additionalProperties: true,
+          },
+          enabled: { type: 'boolean' },
+          autoSync: { type: 'boolean' },
+        },
+      },
+      SyncResult: {
+        type: 'object',
+        properties: {
+          success: { type: 'boolean' },
+          providerId: { type: 'integer' },
+          providerName: { type: 'string' },
+          secretsCount: { type: 'integer' },
+          error: { type: 'string' },
+          syncedSecrets: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                key: { type: 'string' },
+                synced: { type: 'boolean' },
+                error: { type: 'string' },
+              },
+            },
+          },
+        },
+        required: ['success', 'providerId', 'providerName', 'secretsCount'],
+      },
     },
   },
 };

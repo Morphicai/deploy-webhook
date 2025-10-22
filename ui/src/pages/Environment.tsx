@@ -16,16 +16,25 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Plus, RefreshCw, Trash2 } from 'lucide-react';
 
+interface Application {
+  id: number;
+  name: string;
+  image: string;
+  status: string;
+}
+
 interface EnvVariable {
   scope: 'global' | 'project';
   key: string;
   value: string;
+  projectId?: number | null;
   projectName?: string;
 }
 
 export const Environment: React.FC = () => {
   const { t } = useLanguage();
   const [variables, setVariables] = useState<EnvVariable[]>([]);
+  const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -33,11 +42,12 @@ export const Environment: React.FC = () => {
     scope: 'global' as 'global' | 'project',
     key: '',
     value: '',
-    projectName: '',
+    projectId: undefined as number | undefined,
   });
 
   useEffect(() => {
     loadVariables();
+    loadApplications();
   }, []);
 
   const loadVariables = async () => {
@@ -51,8 +61,24 @@ export const Environment: React.FC = () => {
     }
   };
 
+  const loadApplications = async () => {
+    try {
+      const result = await api.getApplications();
+      setApplications(result.data || []);
+    } catch (error) {
+      console.error('Failed to load applications:', error);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // 验证：如果是 project 作用域，必须选择项目
+    if (formData.scope === 'project' && !formData.projectId) {
+      alert('Please select a project');
+      return;
+    }
+    
     setSubmitting(true);
 
     try {
@@ -60,15 +86,15 @@ export const Environment: React.FC = () => {
         scope: formData.scope,
         key: formData.key,
         value: formData.value,
-        projectName: formData.scope === 'project' ? formData.projectName : undefined,
-      });
+        projectId: formData.scope === 'project' ? formData.projectId : undefined,
+      } as any);
 
       setShowForm(false);
       setFormData({
         scope: 'global',
         key: '',
         value: '',
-        projectName: '',
+        projectId: undefined,
       });
 
       await loadVariables();
@@ -86,7 +112,7 @@ export const Environment: React.FC = () => {
     }
 
     try {
-      await api.deleteEnvVariable(variable.scope, variable.key, variable.projectName);
+      await api.deleteEnvVariable(variable.scope, variable.key, variable.projectId || undefined);
       await loadVariables();
       alert(t('environment.deleteSuccess'));
     } catch (error: any) {
@@ -145,14 +171,24 @@ export const Environment: React.FC = () => {
 
                 {formData.scope === 'project' && (
                   <div className="space-y-2">
-                    <Label htmlFor="projectName">{t('environment.projectName')} *</Label>
-                    <Input
-                      id="projectName"
-                      placeholder="my-project"
-                      value={formData.projectName}
-                      onChange={(e) => setFormData({ ...formData, projectName: e.target.value })}
-                      required={formData.scope === 'project'}
-                    />
+                    <Label htmlFor="projectId">{t('environment.projectName')} *</Label>
+                    <Select
+                      value={formData.projectId?.toString() || ''}
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, projectId: value ? Number(value) : undefined })
+                      }
+                    >
+                      <SelectTrigger id="projectId">
+                        <SelectValue placeholder="Select a project" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {applications.map((app) => (
+                          <SelectItem key={app.id} value={app.id.toString()}>
+                            {app.name} ({app.image})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 )}
 

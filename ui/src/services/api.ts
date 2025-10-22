@@ -174,10 +174,10 @@ class ApiService {
   }
 
   // Environment Variables
-  async getEnvVariables(scope?: string, projectName?: string) {
+  async getEnvVariables(scope?: string, projectId?: number) {
     const params = new URLSearchParams();
     if (scope) params.append('scope', scope);
-    if (projectName) params.append('projectName', projectName);
+    if (projectId) params.append('projectId', projectId.toString());
     const { data } = await this.client.get(`/api/env?${params.toString()}`);
     return data;
   }
@@ -186,21 +186,21 @@ class ApiService {
     scope: 'global' | 'project';
     key: string;
     value: string;
-    projectName?: string;
+    projectId?: number;
   }) {
     const { data } = await this.client.post('/api/env', payload);
     return data;
   }
 
-  async deleteEnvVariable(scope: string, key: string, projectName?: string) {
+  async deleteEnvVariable(scope: string, key: string, projectId?: number) {
     const params = new URLSearchParams({ scope, key });
-    if (projectName) params.append('projectName', projectName);
+    if (projectId) params.append('projectId', projectId.toString());
     const { data } = await this.client.delete(`/api/env?${params.toString()}`);
     return data;
   }
 
-  async getProjectEnv(projectName: string) {
-    const { data } = await this.client.get(`/api/env/project/${projectName}`);
+  async getProjectEnv(projectIdentifier: string | number) {
+    const { data } = await this.client.get(`/api/env/project/${projectIdentifier}`);
     return data;
   }
 
@@ -275,6 +275,32 @@ class ApiService {
   // AI Chat
   async sendChatMessage(message: string, history?: Array<{ role: string; content: string }>) {
     const { data } = await this.client.post('/api/ai/chat', { message, history });
+    return data;
+  }
+
+  // Webhooks
+  async listWebhooks() {
+    const { data } = await this.client.get('/api/webhooks');
+    return data;
+  }
+
+  async getWebhook(id: number) {
+    const { data } = await this.client.get(`/api/webhooks/${id}`);
+    return data;
+  }
+
+  async createWebhook(payload: { name: string; type: string; description?: string; secret?: string }) {
+    const { data } = await this.client.post('/api/webhooks', payload);
+    return data;
+  }
+
+  async updateWebhook(id: number, payload: { name?: string; description?: string; enabled?: boolean; secret?: string }) {
+    const { data } = await this.client.put(`/api/webhooks/${id}`, payload);
+    return data;
+  }
+
+  async deleteWebhook(id: number) {
+    const { data } = await this.client.delete(`/api/webhooks/${id}`);
     return data;
   }
 

@@ -1,6 +1,17 @@
 import { Router, Request, Response } from 'express';
 import crypto from 'crypto';
 import { buildErrorResponse } from '../utils/errors';
+import { requireAdmin } from '../middleware/adminAuth';
+import {
+  listWebhooks,
+  getWebhookById,
+  createWebhook,
+  updateWebhook,
+  deleteWebhook,
+  recordWebhookTrigger,
+  getWebhookByType,
+  WebhookType,
+} from '../services/webhookStore';
 
 const router = Router();
 
@@ -69,12 +80,39 @@ function verifyInfisicalWebhook(payload: string, signature: string, secret: stri
  */
 router.post('/infisical', async (req: Request, res: Response) => {
   try {
-    const webhookSecret = process.env.INFISICAL_WEBHOOK_SECRET;
+    // 从数据库获取 Infisical webhook 配置
+    const webhook = getWebhookByType('infisical');
     
-    if (!webhookSecret) {
-      console.warn('[Infisical Webhook] INFISICAL_WEBHOOK_SECRET not configured, skipping verification');
+    if (!webhook) {
+      console.warn('[Infisical Webhook] No Infisical webhook configured in database');
+      // 回退到环境变量
+      const webhookSecret = process.env.INFISICAL_WEBHOOK_SECRET;
+      
+      if (!webhookSecret) {
+        console.warn('[Infisical Webhook] INFISICAL_WEBHOOK_SECRET not configured, skipping verification');
+      } else {
+        // 验证签名
+        const signature = req.headers['x-infisical-signature'] as string;
+        if (!signature) {
+          return res.status(401).json({ 
+            success: false, 
+            error: 'Missing x-infisical-signature header' 
+          });
+        }
+
+        const payload = JSON.stringify(req.body);
+        const isValid = verifyInfisicalWebhook(payload, signature, webhookSecret);
+        
+        if (!isValid) {
+          console.error('[Infisical Webhook] Invalid signature');
+          return res.status(401).json({ 
+            success: false, 
+            error: 'Invalid webhook signature' 
+          });
+        }
+      }
     } else {
-      // 验证签名
+      // 使用数据库中的配置验证签名
       const signature = req.headers['x-infisical-signature'] as string;
       if (!signature) {
         return res.status(401).json({ 
@@ -84,7 +122,7 @@ router.post('/infisical', async (req: Request, res: Response) => {
       }
 
       const payload = JSON.stringify(req.body);
-      const isValid = verifyInfisicalWebhook(payload, signature, webhookSecret);
+      const isValid = verifyInfisicalWebhook(payload, signature, webhook.secret);
       
       if (!isValid) {
         console.error('[Infisical Webhook] Invalid signature');
@@ -93,6 +131,9 @@ router.post('/infisical', async (req: Request, res: Response) => {
           error: 'Invalid webhook signature' 
         });
       }
+
+      // 记录触发
+      recordWebhookTrigger(webhook.id);
     }
 
     const { event, workspace, environment, secretPath, timestamp } = req.body;
@@ -166,6 +207,260 @@ router.post('/infisical/test', (req: Request, res: Response) => {
     headers: req.headers,
     body: req.body,
   });
+});
+
+/**
+ * @openapi
+ * /webhooks:
+ *   get:
+ *     tags:
+ *       - Webhooks
+ *     summary: List all webhooks
+ *     description: Get a list of all configured webhooks
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       '200':
+ *         description: List of webhooks
+ */
+router.get('/', requireAdmin, (req: Request, res: Response) => {
+  try {
+    const webhooks = listWebhooks();
+    res.json({
+      success: true,
+      data: webhooks,
+    });
+  } catch (error) {
+    console.error('[Webhooks] Error listing webhooks:', error);
+    const fail = buildErrorResponse(error);
+    res.status(fail.code ?? 500).json(fail);
+  }
+});
+
+/**
+ * @openapi
+ * /webhooks/{id}:
+ *   get:
+ *     tags:
+ *       - Webhooks
+ *     summary: Get webhook by ID
+ *     description: Get details of a specific webhook
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       '200':
+ *         description: Webhook details
+ *       '404':
+ *         description: Webhook not found
+ */
+router.get('/:id', requireAdmin, (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const webhook = getWebhookById(id);
+    
+    if (!webhook) {
+      return res.status(404).json({
+        success: false,
+        error: 'Webhook not found',
+      });
+    }
+
+    res.json({
+      success: true,
+      data: webhook,
+    });
+  } catch (error) {
+    console.error('[Webhooks] Error getting webhook:', error);
+    const fail = buildErrorResponse(error);
+    res.status(fail.code ?? 500).json(fail);
+  }
+});
+
+/**
+ * @openapi
+ * /webhooks:
+ *   post:
+ *     tags:
+ *       - Webhooks
+ *     summary: Create a new webhook
+ *     description: Create a new webhook configuration
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - type
+ *             properties:
+ *               name:
+ *                 type: string
+ *               type:
+ *                 type: string
+ *                 enum: [infisical]
+ *               description:
+ *                 type: string
+ *               secret:
+ *                 type: string
+ *     responses:
+ *       '200':
+ *         description: Webhook created successfully
+ */
+router.post('/', requireAdmin, (req: Request, res: Response) => {
+  try {
+    const { name, type, description, secret } = req.body;
+
+    if (!name || !type) {
+      return res.status(400).json({
+        success: false,
+        error: 'Name and type are required',
+      });
+    }
+
+    if (!['infisical'].includes(type)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid webhook type. Supported types: infisical',
+      });
+    }
+
+    const webhook = createWebhook({
+      name,
+      type: type as WebhookType,
+      description,
+      secret,
+    });
+
+    res.json({
+      success: true,
+      data: webhook,
+      message: 'Webhook created successfully',
+    });
+  } catch (error: any) {
+    console.error('[Webhooks] Error creating webhook:', error);
+    const fail = buildErrorResponse(error);
+    res.status(fail.code ?? 500).json(fail);
+  }
+});
+
+/**
+ * @openapi
+ * /webhooks/{id}:
+ *   put:
+ *     tags:
+ *       - Webhooks
+ *     summary: Update a webhook
+ *     description: Update webhook configuration
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               enabled:
+ *                 type: boolean
+ *               secret:
+ *                 type: string
+ *     responses:
+ *       '200':
+ *         description: Webhook updated successfully
+ *       '404':
+ *         description: Webhook not found
+ */
+router.put('/:id', requireAdmin, (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const { name, description, enabled, secret } = req.body;
+
+    const webhook = updateWebhook(id, {
+      name,
+      description,
+      enabled,
+      secret,
+    });
+
+    res.json({
+      success: true,
+      data: webhook,
+      message: 'Webhook updated successfully',
+    });
+  } catch (error: any) {
+    console.error('[Webhooks] Error updating webhook:', error);
+    if (error.message.includes('not found')) {
+      return res.status(404).json({
+        success: false,
+        error: error.message,
+      });
+    }
+    const fail = buildErrorResponse(error);
+    res.status(fail.code ?? 500).json(fail);
+  }
+});
+
+/**
+ * @openapi
+ * /webhooks/{id}:
+ *   delete:
+ *     tags:
+ *       - Webhooks
+ *     summary: Delete a webhook
+ *     description: Delete a webhook configuration
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       '200':
+ *         description: Webhook deleted successfully
+ *       '404':
+ *         description: Webhook not found
+ */
+router.delete('/:id', requireAdmin, (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    deleteWebhook(id);
+
+    res.json({
+      success: true,
+      message: 'Webhook deleted successfully',
+    });
+  } catch (error: any) {
+    console.error('[Webhooks] Error deleting webhook:', error);
+    if (error.message.includes('not found')) {
+      return res.status(404).json({
+        success: false,
+        error: error.message,
+      });
+    }
+    const fail = buildErrorResponse(error);
+    res.status(fail.code ?? 500).json(fail);
+  }
 });
 
 export default router;

@@ -184,6 +184,38 @@ function ensureDatabase(): Database.Database {
     BEGIN
       UPDATE api_keys SET updated_at = datetime('now') WHERE id = NEW.id;
     END;
+    CREATE TABLE IF NOT EXISTS secret_providers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE,
+      type TEXT NOT NULL CHECK(type IN ('infisical', 'aws-secrets-manager', 'hashicorp-vault', 'azure-keyvault', 'gcp-secret-manager')),
+      config TEXT NOT NULL DEFAULT '{}',
+      enabled INTEGER NOT NULL DEFAULT 1,
+      auto_sync INTEGER NOT NULL DEFAULT 0,
+      last_sync_at TEXT,
+      last_sync_status TEXT,
+      last_sync_error TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_secret_providers_enabled ON secret_providers(enabled);
+    CREATE INDEX IF NOT EXISTS idx_secret_providers_auto_sync ON secret_providers(auto_sync);
+    CREATE TRIGGER IF NOT EXISTS secret_providers_updated_at
+    AFTER UPDATE ON secret_providers
+    BEGIN
+      UPDATE secret_providers SET updated_at = datetime('now') WHERE id = NEW.id;
+    END;
+    CREATE TABLE IF NOT EXISTS secret_syncs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      provider_id INTEGER NOT NULL,
+      status TEXT NOT NULL CHECK(status IN ('success', 'failed', 'in_progress')),
+      secrets_count INTEGER NOT NULL DEFAULT 0,
+      error_message TEXT,
+      started_at TEXT NOT NULL DEFAULT (datetime('now')),
+      completed_at TEXT,
+      FOREIGN KEY (provider_id) REFERENCES secret_providers(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_secret_syncs_provider_id ON secret_syncs(provider_id);
+    CREATE INDEX IF NOT EXISTS idx_secret_syncs_status ON secret_syncs(status);
   `);
 
   return db;
@@ -191,9 +223,21 @@ function ensureDatabase(): Database.Database {
 
 const databaseInstance = ensureDatabase();
 
+// Run migrations
+import { migration002_updateEnvTableProjectId } from '../migrations/002_update_env_table_project_id';
+try {
+  migration002_updateEnvTableProjectId();
+} catch (error) {
+  console.error('[Database] Migration error:', error);
+}
+
 // Initialize default repository
 import { initializeDefaultRepository } from './repositoryStore';
 initializeDefaultRepository();
+
+// Initialize webhooks table
+import { initializeWebhooksTable } from './webhookStore';
+initializeWebhooksTable();
 
 export function getDb(): Database.Database {
   return databaseInstance;
