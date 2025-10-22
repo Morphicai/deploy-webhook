@@ -5,7 +5,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select } from '@/components/ui/select';
+import { 
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
@@ -155,13 +161,16 @@ export const Secrets: React.FC = () => {
                 <div className="space-y-2">
                   <Label htmlFor="type">{t('secrets.type')} *</Label>
                   <Select
-                    id="type"
                     value={formData.type}
-                    onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                    required
+                    onValueChange={(value) => setFormData({ ...formData, type: value })}
                   >
-                    <option value="infisical">Infisical</option>
-                    <option value="env">Environment Variable</option>
+                    <SelectTrigger id="type">
+                      <SelectValue placeholder={t('secrets.type')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="infisical">Infisical</SelectItem>
+                      <SelectItem value="env">Environment Variable</SelectItem>
+                    </SelectContent>
                   </Select>
                 </div>
 

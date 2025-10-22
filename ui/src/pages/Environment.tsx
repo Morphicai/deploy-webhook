@@ -5,7 +5,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select } from '@/components/ui/select';
+import { 
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Plus, RefreshCw, Trash2 } from 'lucide-react';
@@ -122,15 +128,18 @@ export const Environment: React.FC = () => {
                 <div className="space-y-2">
                   <Label htmlFor="scope">{t('environment.scope')} *</Label>
                   <Select
-                    id="scope"
                     value={formData.scope}
-                    onChange={(e) =>
-                      setFormData({ ...formData, scope: e.target.value as 'global' | 'project' })
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, scope: value as 'global' | 'project' })
                     }
-                    required
                   >
-                    <option value="global">{t('environment.global')}</option>
-                    <option value="project">{t('environment.project')}</option>
+                    <SelectTrigger id="scope">
+                      <SelectValue placeholder={t('environment.scope')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="global">{t('environment.global')}</SelectItem>
+                      <SelectItem value="project">{t('environment.project')}</SelectItem>
+                    </SelectContent>
                   </Select>
                 </div>
 
