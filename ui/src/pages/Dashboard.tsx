@@ -2,7 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { api } from '@/services/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Package, Activity, Key, Settings } from 'lucide-react';
+import { Package, Activity, Key, Settings, Plug, ArrowRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
 
 interface Stats {
   applications: number;
@@ -144,6 +146,38 @@ export const Dashboard: React.FC = () => {
                 </div>
                 <p className="text-sm text-muted-foreground mt-1">Total Configs</p>
               </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* MCP Setup Quick Access */}
+      <Card className="border-primary/50 bg-gradient-to-br from-primary/5 to-primary/10">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Plug className="w-5 h-5" />
+            Connect with AI Clients
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Integrate with Claude Desktop or Cursor IDE using Model Context Protocol (MCP).
+              Enable AI-powered automation for your deployments.
+            </p>
+            <div className="flex items-center gap-4">
+              <Link to="/mcp-setup">
+                <Button className="gap-2">
+                  <Plug className="w-4 h-4" />
+                  Setup MCP Integration
+                  <ArrowRight className="w-4 h-4" />
+                </Button>
+              </Link>
+              <Link to="/docs">
+                <Button variant="outline" className="gap-2">
+                  View Documentation
+                </Button>
+              </Link>
             </div>
           </div>
         </CardContent>

@@ -9,7 +9,8 @@ import {
   LogOut,
   Database,
   Server,
-  KeyRound
+  KeyRound,
+  Plug
 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -63,6 +64,12 @@ export const Sidebar: React.FC = () => {
       path: '/api-keys',
       icon: <KeyRound className="w-5 h-5" />,
       translationKey: 'nav.apiKeys',
+    },
+    {
+      name: t('nav.mcpSetup'),
+      path: '/mcp-setup',
+      icon: <Plug className="w-5 h-5" />,
+      translationKey: 'nav.mcpSetup',
     },
     {
       name: t('nav.settings'),

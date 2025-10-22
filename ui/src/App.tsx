@@ -13,6 +13,7 @@ import { Secrets } from './pages/Secrets';
 import { Repositories } from './pages/Repositories';
 import { Settings } from './pages/Settings';
 import { APIKeys } from './pages/APIKeys';
+import { MCPSetup } from './pages/MCPSetup';
 import { Docs } from './pages/Docs';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -92,6 +93,7 @@ const AppRoutes: React.FC = () => {
         <Route path="secrets" element={<Secrets />} />
         <Route path="repositories" element={<Repositories />} />
         <Route path="api-keys" element={<APIKeys />} />
+        <Route path="mcp-setup" element={<MCPSetup />} />
         <Route path="settings" element={<Settings />} />
         <Route path="docs" element={<Docs />} />
       </Route>

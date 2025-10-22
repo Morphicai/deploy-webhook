@@ -14,16 +14,16 @@ declare global {
 }
 
 /**
- * Extract API Key from request headers
+ * Extract API Key from request headers or query parameters
  */
 function extractAPIKey(req: Request): string | null {
-  // Check X-API-Key header
+  // Priority 1: Check X-API-Key header
   const xApiKey = req.header('x-api-key');
   if (xApiKey) {
     return xApiKey;
   }
 
-  // Check Authorization header (Bearer token)
+  // Priority 2: Check Authorization header (Bearer token)
   const authHeader = req.header('authorization');
   if (authHeader && authHeader.startsWith('Bearer ')) {
     const token = authHeader.substring(7);
@@ -31,6 +31,12 @@ function extractAPIKey(req: Request): string | null {
     if (token.startsWith('dw_')) {
       return token;
     }
+  }
+
+  // Priority 3: Check query parameter (for SSE connections)
+  const queryApiKey = req.query.apiKey || req.query.api_key || req.query['X-API-Key'];
+  if (queryApiKey && typeof queryApiKey === 'string') {
+    return queryApiKey;
   }
 
   return null;

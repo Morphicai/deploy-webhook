@@ -21,6 +21,8 @@ export class DeployWebhookMCPServer {
   private tools: Map<string, Tool & { handler: (args: any) => Promise<any> }>;
 
   constructor() {
+    console.log('[MCP Server] Initializing Deploy Webhook MCP Server...');
+    
     this.server = new Server(
       {
         name: 'deploy-webhook-mcp',
@@ -32,10 +34,14 @@ export class DeployWebhookMCPServer {
         },
       }
     );
+    console.log('[MCP Server] Server instance created');
 
     this.tools = new Map();
+    console.log('[MCP Server] Registering tools...');
     this.registerTools();
+    console.log('[MCP Server] Setting up handlers...');
     this.setupHandlers();
+    console.log('[MCP Server] ✅ Initialization complete');
   }
 
   /**
@@ -71,11 +77,17 @@ export class DeployWebhookMCPServer {
   private setupHandlers() {
     // List available tools
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
+      console.log('[MCP Server] 📋 ListTools request received');
+      console.log(`[MCP Server] Available tools count: ${this.tools.size}`);
+      
       const tools = Array.from(this.tools.values()).map(tool => ({
         name: tool.name,
         description: tool.description,
         inputSchema: tool.inputSchema,
       }));
+
+      console.log('[MCP Server] Tool names:', tools.map(t => t.name).join(', '));
+      console.log('[MCP Server] ✅ Returning tools list');
 
       return { tools };
     });
@@ -84,15 +96,21 @@ export class DeployWebhookMCPServer {
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const { name, arguments: args } = request.params;
 
-      console.log(`[MCP] Tool called: ${name}`, args);
+      console.log(`[MCP Server] 🔧 Tool call received: ${name}`);
+      console.log(`[MCP Server] Arguments:`, JSON.stringify(args, null, 2));
 
       const tool = this.tools.get(name);
       if (!tool) {
+        console.error(`[MCP Server] ❌ Unknown tool: ${name}`);
+        console.error(`[MCP Server] Available tools:`, Array.from(this.tools.keys()).join(', '));
         throw new Error(`Unknown tool: ${name}`);
       }
 
       try {
+        console.log(`[MCP Server] 🚀 Executing tool: ${name}`);
         const result = await tool.handler(args || {});
+        console.log(`[MCP Server] ✅ Tool execution successful: ${name}`);
+        console.log(`[MCP Server] Result:`, JSON.stringify(result, null, 2));
         
         return {
           content: [
@@ -103,7 +121,8 @@ export class DeployWebhookMCPServer {
           ],
         };
       } catch (error: any) {
-        console.error(`[MCP] Tool execution error:`, error);
+        console.error(`[MCP Server] ❌ Tool execution error for ${name}:`, error);
+        console.error(`[MCP Server] Error stack:`, error.stack);
         
         return {
           content: [
@@ -119,6 +138,8 @@ export class DeployWebhookMCPServer {
         };
       }
     });
+    
+    console.log('[MCP Server] ✅ Request handlers registered');
   }
 
   /**
