@@ -73,10 +73,8 @@ function ensureDatabase(): Database.Database {
       image TEXT NOT NULL,
       version TEXT,
       repository_id INTEGER,
-      domain TEXT,
       ports TEXT NOT NULL DEFAULT '[]',
       env_vars TEXT NOT NULL DEFAULT '{}',
-      caddy_config TEXT NOT NULL DEFAULT '{}',
       status TEXT NOT NULL DEFAULT 'stopped',
       last_deployed_at TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -87,6 +85,26 @@ function ensureDatabase(): Database.Database {
     AFTER UPDATE ON applications
     BEGIN
       UPDATE applications SET updated_at = datetime('now') WHERE id = NEW.id;
+    END;
+    CREATE TABLE IF NOT EXISTS domains (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      domain_name TEXT NOT NULL UNIQUE,
+      type TEXT NOT NULL,
+      application_id INTEGER,
+      target_url TEXT NOT NULL,
+      caddy_config TEXT NOT NULL DEFAULT '{}',
+      enabled INTEGER NOT NULL DEFAULT 1,
+      description TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (application_id) REFERENCES applications(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_domains_application_id ON domains(application_id);
+    CREATE INDEX IF NOT EXISTS idx_domains_enabled ON domains(enabled);
+    CREATE TRIGGER IF NOT EXISTS domains_updated_at
+    AFTER UPDATE ON domains
+    BEGIN
+      UPDATE domains SET updated_at = datetime('now') WHERE id = NEW.id;
     END;
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -130,6 +148,41 @@ function ensureDatabase(): Database.Database {
     AFTER UPDATE ON image_whitelists
     BEGIN
       UPDATE image_whitelists SET updated_at = datetime('now') WHERE id = NEW.id;
+    END;
+    CREATE TABLE IF NOT EXISTS system_settings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      key TEXT NOT NULL UNIQUE,
+      value TEXT NOT NULL,
+      description TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE TRIGGER IF NOT EXISTS system_settings_updated_at
+    AFTER UPDATE ON system_settings
+    BEGIN
+      UPDATE system_settings SET updated_at = datetime('now') WHERE id = NEW.id;
+    END;
+    CREATE TABLE IF NOT EXISTS api_keys (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      description TEXT,
+      key_hash TEXT NOT NULL UNIQUE,
+      key_prefix TEXT NOT NULL,
+      permission TEXT NOT NULL DEFAULT 'full',
+      enabled INTEGER NOT NULL DEFAULT 1,
+      expires_at TEXT,
+      last_used_at TEXT,
+      last_used_ip TEXT,
+      usage_count INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_api_keys_enabled ON api_keys(enabled);
+    CREATE INDEX IF NOT EXISTS idx_api_keys_key_hash ON api_keys(key_hash);
+    CREATE TRIGGER IF NOT EXISTS api_keys_updated_at
+    AFTER UPDATE ON api_keys
+    BEGIN
+      UPDATE api_keys SET updated_at = datetime('now') WHERE id = NEW.id;
     END;
   `);
 

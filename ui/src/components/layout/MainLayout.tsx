@@ -2,6 +2,7 @@ import React from 'react';
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
+import { AIChat } from '../AIChat';
 
 interface MainLayoutProps {
   title?: string;
@@ -17,6 +18,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ title }) => {
           <Outlet />
         </main>
       </div>
+      <AIChat />
     </div>
   );
 };

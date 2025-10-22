@@ -3,6 +3,7 @@ import path from 'path';
 import { execSync } from 'child_process';
 import { listApplications, type ApplicationRecord } from './applicationStore';
 import { listRepositories } from './repositoryStore';
+import { listDomains } from './domainStore';
 import { caddyConfigGenerator } from './caddyConfigGenerator';
 
 export interface CaddyConfig {
@@ -96,29 +97,49 @@ ${this.config.apiDomain} {
 
 `;
 
-    // 为每个应用生成反向代理配置
-    if (applications.length > 0) {
+    // 为每个域名生成反向代理配置
+    const domains = listDomains({ enabled: true });
+    if (domains.length > 0) {
       config += `# ============================================\n`;
-      config += `# Deployed Applications\n`;
+      config += `# Configured Domains\n`;
       config += `# ============================================\n\n`;
 
-      for (const app of applications) {
-        if (app.ports.length === 0) continue;
-        
-        // 使用自定义域名或生成默认子域名
-        const domain = app.domain || `${this.sanitizeSubdomain(app.name)}.${this.config.appsDomain}`;
-        const primaryPort = app.ports[0].host;
+      for (const domain of domains) {
+        let targetHost = 'localhost';
+        let targetPort = 80;
+        let description = domain.description || domain.domainName;
+
+        // 解析目标 URL
+        try {
+          const url = new URL(domain.targetUrl);
+          targetHost = url.hostname;
+          targetPort = url.port ? parseInt(url.port) : (url.protocol === 'https:' ? 443 : 80);
+          
+          // 生成描述信息
+          if (domain.type === 'application' && domain.applicationId) {
+            const app = applications.find(a => a.id === domain.applicationId);
+            description = app 
+              ? `${domain.domainName} -> Application: ${app.name} (${domain.targetUrl})`
+              : `${domain.domainName} -> ${domain.targetUrl}`;
+          } else {
+            description = `${domain.domainName} -> ${domain.targetUrl}`;
+          }
+        } catch (error) {
+          console.error(`[caddy-service] Invalid target URL for domain ${domain.domainName}:`, error);
+          continue;
+        }
 
         // 使用高级配置生成器
-        const appConfig = caddyConfigGenerator.generateDomainConfig(
-          domain,
-          'localhost',
-          primaryPort,
-          app.name,
-          app.caddyConfig || {}
+        config += `# ${description}\n`;
+        const domainConfig = caddyConfigGenerator.generateDomainConfig(
+          domain.domainName,
+          targetHost,
+          targetPort,
+          domain.domainName.replace(/\./g, '-'),
+          domain.caddyConfig || {}
         );
         
-        config += appConfig;
+        config += domainConfig;
       }
     }
 
@@ -209,26 +230,24 @@ ${this.config.apiDomain} {
   }
 
   /**
-   * 获取应用的访问 URL
+   * 获取应用的访问 URL（返回该应用的所有域名）
    */
-  getApplicationUrl(appName: string): string {
+  getApplicationUrl(appName: string): string[] {
     const applications = listApplications();
     const app = applications.find(a => a.name === appName);
     
-    if (app && app.domain) {
-      return `https://${app.domain}`;
-    }
+    if (!app) return [];
     
-    const subdomain = this.sanitizeSubdomain(appName);
-    return `https://${subdomain}.${this.config.appsDomain}`;
+    const domains = listDomains({ applicationId: app.id, enabled: true });
+    return domains.map(d => `https://${d.domainName}`);
   }
 
   /**
    * 列出所有应用的 URL
    */
-  listApplicationUrls(): Record<string, string> {
+  listApplicationUrls(): Record<string, string[]> {
     const applications = listApplications();
-    const urls: Record<string, string> = {};
+    const urls: Record<string, string[]> = {};
     
     for (const app of applications) {
       urls[app.name] = this.getApplicationUrl(app.name);

@@ -12,6 +12,7 @@ import { Environment } from './pages/Environment';
 import { Secrets } from './pages/Secrets';
 import { Repositories } from './pages/Repositories';
 import { Settings } from './pages/Settings';
+import { APIKeys } from './pages/APIKeys';
 import { Docs } from './pages/Docs';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -90,6 +91,7 @@ const AppRoutes: React.FC = () => {
         <Route path="environment" element={<Environment />} />
         <Route path="secrets" element={<Secrets />} />
         <Route path="repositories" element={<Repositories />} />
+        <Route path="api-keys" element={<APIKeys />} />
         <Route path="settings" element={<Settings />} />
         <Route path="docs" element={<Docs />} />
       </Route>

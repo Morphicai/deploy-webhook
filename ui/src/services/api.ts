@@ -225,6 +225,59 @@ class ApiService {
     return data;
   }
 
+  // Settings
+  async getSettings() {
+    const { data } = await this.client.get('/api/settings');
+    return data;
+  }
+
+  async updateSettings(settings: Record<string, string>) {
+    const { data } = await this.client.put('/api/settings', settings);
+    return data;
+  }
+
+  async getOpenAIConfig() {
+    const { data } = await this.client.get('/api/settings/openai');
+    return data;
+  }
+
+  async updateOpenAIConfig(config: { apiKey: string; baseUrl: string }) {
+    const { data } = await this.client.put('/api/settings/openai', config);
+    return data;
+  }
+
+  // API Keys
+  async listAPIKeys() {
+    const { data } = await this.client.get('/api/api-keys');
+    return data;
+  }
+
+  async getAPIKey(id: number) {
+    const { data } = await this.client.get(`/api/api-keys/${id}`);
+    return data;
+  }
+
+  async createAPIKey(payload: { name: string; description?: string; permission?: string; expiresAt?: string }) {
+    const { data } = await this.client.post('/api/api-keys', payload);
+    return data;
+  }
+
+  async updateAPIKey(id: number, payload: { name?: string; description?: string; permission?: string; enabled?: boolean; expiresAt?: string | null }) {
+    const { data } = await this.client.put(`/api/api-keys/${id}`, payload);
+    return data;
+  }
+
+  async deleteAPIKey(id: number) {
+    const { data } = await this.client.delete(`/api/api-keys/${id}`);
+    return data;
+  }
+
+  // AI Chat
+  async sendChatMessage(message: string, history?: Array<{ role: string; content: string }>) {
+    const { data } = await this.client.post('/api/ai/chat', { message, history });
+    return data;
+  }
+
   // Generic methods for repositories and other resources
   async get(url: string) {
     return this.client.get(url);

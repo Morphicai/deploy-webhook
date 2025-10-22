@@ -14,6 +14,10 @@ import webhooksRouter from './routes/webhooks';
 import repositoriesRouter from './routes/repositories';
 import imageWhitelistRouter from './routes/imageWhitelist';
 import caddyRouter from './routes/caddy';
+import domainsRouter from './routes/domains';
+import settingsRouter from './routes/settings';
+import aiChatRouter from './routes/aiChat';
+import apiKeysRouter from './routes/apiKeys';
 import cors from 'cors';
 import { swaggerSpec } from './swagger';
 
@@ -33,9 +37,13 @@ if (process.env.NODE_ENV !== 'production') {
 app.use('/api/secrets', secretRouter);
 app.use('/api/env', envRouter);
 app.use('/api/applications', applicationsRouter);
+app.use('/api/domains', domainsRouter);
 app.use('/api/repositories', repositoriesRouter);
 app.use('/api/image-whitelist', imageWhitelistRouter);
 app.use('/api/caddy', caddyRouter);
+app.use('/api/settings', settingsRouter);
+app.use('/api/ai', aiChatRouter);
+app.use('/api/api-keys', apiKeysRouter);
 app.use('/api/auth', authRouter);
 app.use('/docs', docsRouter);
 app.get('/docs.json', (_req: Request, res: Response) => {

@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { deployConfig } from '../config';
 import { DeployRequest } from '../types';
 import { isImageWhitelisted } from '../services/imageWhitelistStore';
+import { verifyAPIKey } from '../services/apiKeyStore';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
 const ADMIN_TOKEN = (process.env.ADMIN_TOKEN || '').trim();
@@ -44,12 +45,24 @@ export function validateSecret(req: Request): boolean {
 }
 
 /**
- * 验证部署请求的认证：支持已登录用户或 webhook secret
+ * 验证部署请求的认证：支持已登录用户、API Key 或 webhook secret
  */
-export function validateDeployAuth(req: Request): { authorized: boolean; authType: 'user' | 'webhook' | 'none' } {
+export function validateDeployAuth(req: Request): { authorized: boolean; authType: 'user' | 'webhook' | 'apikey' | 'none' } {
   // 优先检查用户认证（来自管理后台）
   if (validateUserAuth(req)) {
     return { authorized: true, authType: 'user' };
+  }
+
+  // 检查 API Key 认证（来自 API 调用）
+  const apiKey = extractAPIKey(req);
+  if (apiKey) {
+    const keyRecord = verifyAPIKey(apiKey);
+    if (keyRecord) {
+      // Check if the API key has deploy permission
+      if (keyRecord.permission === 'deploy' || keyRecord.permission === 'full') {
+        return { authorized: true, authType: 'apikey' };
+      }
+    }
   }
 
   // 检查 webhook secret（来自外部 webhook）
@@ -58,6 +71,29 @@ export function validateDeployAuth(req: Request): { authorized: boolean; authTyp
   }
 
   return { authorized: false, authType: 'none' };
+}
+
+/**
+ * 从请求中提取 API Key
+ */
+function extractAPIKey(req: Request): string | null {
+  // Check X-API-Key header
+  const xApiKey = req.header('x-api-key');
+  if (xApiKey) {
+    return xApiKey;
+  }
+
+  // Check Authorization header (Bearer token)
+  const authHeader = req.header('authorization');
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.substring(7);
+    // Only treat as API key if it starts with 'dw_'
+    if (token.startsWith('dw_')) {
+      return token;
+    }
+  }
+
+  return null;
 }
 
 export function validateDeployPayload(payload: DeployRequest): { ok: true } | { ok: false; error: string } {

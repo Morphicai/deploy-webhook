@@ -8,7 +8,8 @@ import {
   FileText,
   LogOut,
   Database,
-  Server
+  Server,
+  KeyRound
 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -56,6 +57,12 @@ export const Sidebar: React.FC = () => {
       path: '/repositories',
       icon: <Server className="w-5 h-5" />,
       translationKey: 'nav.repositories',
+    },
+    {
+      name: t('nav.apiKeys'),
+      path: '/api-keys',
+      icon: <KeyRound className="w-5 h-5" />,
+      translationKey: 'nav.apiKeys',
     },
     {
       name: t('nav.settings'),

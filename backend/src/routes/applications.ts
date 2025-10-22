@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { requireAdmin } from '../middleware/adminAuth';
+import { requireAnyAuth } from '../middleware/apiKeyAuth';
 import { buildErrorResponse } from '../utils/errors';
 import {
   listApplications,
@@ -9,11 +9,13 @@ import {
   deleteApplication,
 } from '../services/applicationStore';
 import { ContainerService } from '../services/containerService';
+import type { Router as ExpressRouter } from 'express';
 
-const router = Router();
+const router: ExpressRouter = Router();
 const containerService = new ContainerService();
 
-router.use(requireAdmin);
+// Allow both Admin and API Key authentication
+router.use(requireAnyAuth);
 
 /**
  * @openapi

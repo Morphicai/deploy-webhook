@@ -42,9 +42,18 @@ export const Settings: React.FC = () => {
     description: '',
   });
 
+  // OpenAI 配置相关状态
+  const [openAIConfig, setOpenAIConfig] = useState({
+    apiKey: '',
+    baseUrl: 'https://api.openai.com/v1',
+    hasApiKey: false,
+  });
+  const [openAISaving, setOpenAISaving] = useState(false);
+
   // 加载仓库和白名单
   useEffect(() => {
     loadData();
+    loadOpenAIConfig();
   }, []);
 
   const loadData = async () => {
@@ -57,6 +66,19 @@ export const Settings: React.FC = () => {
       setWhitelistRules(rulesRes.data || []);
     } catch (error) {
       console.error('Failed to load data:', error);
+    }
+  };
+
+  const loadOpenAIConfig = async () => {
+    try {
+      const config = await api.getOpenAIConfig();
+      setOpenAIConfig({
+        apiKey: config.apiKey || '',
+        baseUrl: config.baseUrl || 'https://api.openai.com/v1',
+        hasApiKey: config.hasApiKey || false,
+      });
+    } catch (error) {
+      console.error('Failed to load OpenAI config:', error);
     }
   };
 
@@ -109,6 +131,28 @@ export const Settings: React.FC = () => {
     if (repositoryId === null) return 'All Repositories';
     const repo = repositories.find(r => r.id === repositoryId);
     return repo ? repo.name : `Repository #${repositoryId}`;
+  };
+
+  const handleSaveOpenAIConfig = async () => {
+    if (!openAIConfig.apiKey || !openAIConfig.baseUrl) {
+      alert('Please enter both API Key and Base URL');
+      return;
+    }
+
+    setOpenAISaving(true);
+    try {
+      await api.updateOpenAIConfig({
+        apiKey: openAIConfig.apiKey,
+        baseUrl: openAIConfig.baseUrl,
+      });
+      await loadOpenAIConfig();
+      alert('OpenAI configuration saved successfully');
+    } catch (error) {
+      const err = error as { response?: { data?: { error?: string } }; message?: string };
+      alert(err.response?.data?.error || err.message || 'Failed to save OpenAI config');
+    } finally {
+      setOpenAISaving(false);
+    }
   };
 
   // 生成随机密钥（32字节base64）
@@ -283,6 +327,63 @@ export const Settings: React.FC = () => {
                 className="bg-muted font-mono text-sm"
               />
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* OpenAI 配置 */}
+      <Card>
+        <CardHeader>
+          <CardTitle>AI Assistant Configuration</CardTitle>
+          <CardDescription>
+            Configure OpenAI API for the AI assistant feature
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="openai-api-key">OpenAI API Key</Label>
+            <Input
+              id="openai-api-key"
+              type="password"
+              value={openAIConfig.apiKey}
+              onChange={(e) => setOpenAIConfig({ ...openAIConfig, apiKey: e.target.value })}
+              placeholder="sk-..."
+              className="font-mono text-sm"
+            />
+            {openAIConfig.hasApiKey && (
+              <p className="text-sm text-green-600">✓ API Key is configured</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="openai-base-url">Base URL</Label>
+            <Input
+              id="openai-base-url"
+              type="text"
+              value={openAIConfig.baseUrl}
+              onChange={(e) => setOpenAIConfig({ ...openAIConfig, baseUrl: e.target.value })}
+              placeholder="https://api.openai.com/v1"
+              className="font-mono text-sm"
+            />
+            <p className="text-sm text-muted-foreground">
+              Use custom Base URL for OpenAI-compatible APIs (e.g., Azure OpenAI)
+            </p>
+          </div>
+
+          <Button
+            onClick={handleSaveOpenAIConfig}
+            disabled={openAISaving}
+          >
+            {openAISaving ? 'Saving...' : 'Save OpenAI Configuration'}
+          </Button>
+
+          <div className="rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-800 p-4">
+            <h4 className="font-medium text-sm text-blue-900 dark:text-blue-100 mb-2">
+              💡 About AI Assistant
+            </h4>
+            <p className="text-sm text-blue-800 dark:text-blue-200">
+              Once configured, you can use the AI assistant chat at the bottom of the page to help with deployment tasks, configuration questions, and troubleshooting.
+            </p>
           </div>
         </CardContent>
       </Card>

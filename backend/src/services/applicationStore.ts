@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import { getDb } from './database';
 import Docker from 'dockerode';
-import type { CaddyAdvancedConfig } from '../types/caddy';
 
 export interface PortMapping {
   host: number;
@@ -14,10 +13,8 @@ export interface ApplicationRecord {
   image: string;
   version: string | null;
   repositoryId: number | null;
-  domain: string | null;
   ports: PortMapping[];
   envVars: Record<string, string>;
-  caddyConfig: CaddyAdvancedConfig;
   status: 'running' | 'stopped' | 'error' | 'deploying';
   lastDeployedAt: string | null;
   createdAt: string;
@@ -34,10 +31,8 @@ const applicationSchema = z.object({
   image: z.string().min(1).max(512),
   version: z.string().max(128).nullish(),
   repositoryId: z.number().nullish(),
-  domain: z.string().max(255).nullish(),
   ports: z.array(portMappingSchema).min(1),
   envVars: z.record(z.string(), z.string()).optional(),
-  caddyConfig: z.any().optional(),
 });
 
 type ApplicationInput = z.infer<typeof applicationSchema>;
@@ -49,10 +44,8 @@ function mapRow(row: any): ApplicationRecord {
     image: row.image,
     version: row.version,
     repositoryId: row.repository_id,
-    domain: row.domain,
     ports: JSON.parse(row.ports || '[]'),
     envVars: JSON.parse(row.env_vars || '{}'),
-    caddyConfig: JSON.parse(row.caddy_config || '{}'),
     status: row.status,
     lastDeployedAt: row.last_deployed_at,
     createdAt: row.created_at,
@@ -66,7 +59,7 @@ function mapRow(row: any): ApplicationRecord {
 export function listApplications(): ApplicationRecord[] {
   const db = getDb();
   const rows = db.prepare(`
-    SELECT id, name, image, version, repository_id, domain, ports, env_vars, caddy_config,
+    SELECT id, name, image, version, repository_id, ports, env_vars,
            status, last_deployed_at, created_at, updated_at
     FROM applications
     ORDER BY id DESC
@@ -80,7 +73,7 @@ export function listApplications(): ApplicationRecord[] {
 export function getApplicationById(id: number): ApplicationRecord | null {
   const db = getDb();
   const row = db.prepare(`
-    SELECT id, name, image, version, repository_id, domain, ports, env_vars, caddy_config,
+    SELECT id, name, image, version, repository_id, ports, env_vars,
            status, last_deployed_at, created_at, updated_at
     FROM applications
     WHERE id = ?
@@ -94,7 +87,7 @@ export function getApplicationById(id: number): ApplicationRecord | null {
 export function getApplicationByName(name: string): ApplicationRecord | null {
   const db = getDb();
   const row = db.prepare(`
-    SELECT id, name, image, version, repository_id, domain, ports, env_vars, caddy_config,
+    SELECT id, name, image, version, repository_id, ports, env_vars,
            status, last_deployed_at, created_at, updated_at
     FROM applications
     WHERE name = ?
@@ -116,8 +109,8 @@ export function createApplication(input: ApplicationInput): ApplicationRecord {
   }
   
   const stmt = db.prepare(`
-    INSERT INTO applications (name, image, version, repository_id, domain, ports, env_vars, caddy_config, status)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'stopped')
+    INSERT INTO applications (name, image, version, repository_id, ports, env_vars, status)
+    VALUES (?, ?, ?, ?, ?, ?, 'stopped')
   `);
   
   const info = stmt.run(
@@ -125,10 +118,8 @@ export function createApplication(input: ApplicationInput): ApplicationRecord {
     parsed.image,
     parsed.version || null,
     parsed.repositoryId || null,
-    parsed.domain || null,
     JSON.stringify(parsed.ports),
-    JSON.stringify(parsed.envVars || {}),
-    JSON.stringify(parsed.caddyConfig || {})
+    JSON.stringify(parsed.envVars || {})
   );
   
   const created = getApplicationById(Number(info.lastInsertRowid));
@@ -162,11 +153,6 @@ export function updateApplication(id: number, input: Partial<ApplicationInput>):
     values.push(input.repositoryId || null);
   }
   
-  if (input.domain !== undefined) {
-    updates.push('domain = ?');
-    values.push(input.domain || null);
-  }
-  
   if (input.ports !== undefined) {
     const validated = z.array(portMappingSchema).parse(input.ports);
     updates.push('ports = ?');
@@ -176,11 +162,6 @@ export function updateApplication(id: number, input: Partial<ApplicationInput>):
   if (input.envVars !== undefined) {
     updates.push('env_vars = ?');
     values.push(JSON.stringify(input.envVars));
-  }
-  
-  if (input.caddyConfig !== undefined) {
-    updates.push('caddy_config = ?');
-    values.push(JSON.stringify(input.caddyConfig));
   }
   
   if (updates.length === 0) return current;
