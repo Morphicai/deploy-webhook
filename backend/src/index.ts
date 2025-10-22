@@ -18,6 +18,7 @@ import domainsRouter from './routes/domains';
 import settingsRouter from './routes/settings';
 import aiChatRouter from './routes/aiChat';
 import apiKeysRouter from './routes/apiKeys';
+import mcpRouter from './routes/mcp';
 import cors from 'cors';
 import { swaggerSpec } from './swagger';
 
@@ -44,6 +45,7 @@ app.use('/api/caddy', caddyRouter);
 app.use('/api/settings', settingsRouter);
 app.use('/api/ai', aiChatRouter);
 app.use('/api/api-keys', apiKeysRouter);
+app.use('/api/mcp', mcpRouter);
 app.use('/api/auth', authRouter);
 app.use('/docs', docsRouter);
 app.get('/docs.json', (_req: Request, res: Response) => {
