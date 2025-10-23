@@ -18,7 +18,15 @@ router.post('/register', async (req, res) => {
       return res.status(403).json({ success: false, error: 'Registration disabled' });
     }
     const created = await createUser(req.body);
-    res.status(201).json({ success: true, data: { id: created.id, email: created.email } });
+    res.status(201).json({ 
+      success: true, 
+      data: { 
+        user: { 
+          id: created.id, 
+          email: created.email 
+        } 
+      } 
+    });
   } catch (error) {
     const fail = buildErrorResponse(error);
     res.status(fail.code ?? 400).json(fail);

@@ -12,7 +12,18 @@
     "mcp": "node dist/mcp/server.js",
     "clean": "rm -rf dist",
     "docker:build": "docker build -t deploy-webhook .",
-    "docker:run": "docker run --rm -p 9000:9000 -v /var/run/docker.sock:/var/run/docker.sock deploy-webhook"
+    "docker:run": "docker run --rm -p 9000:9000 -v /var/run/docker.sock:/var/run/docker.sock deploy-webhook",
+    "docker:check": "node scripts/check-docker.js",
+    "test": "npm run docker:check && NODE_ENV=test jest",
+    "test:watch": "NODE_ENV=test jest --watch",
+    "test:coverage": "npm run docker:check && NODE_ENV=test jest --coverage",
+    "test:verbose": "npm run docker:check && NODE_ENV=test jest --verbose",
+    "test:ci": "npm run docker:check && NODE_ENV=test jest --ci --coverage",
+    "test:integration": "npm run docker:check && NODE_ENV=test jest tests/integration",
+    "test:e2e": "npm run docker:check && NODE_ENV=test jest tests/e2e",
+    "test:parallel": "npm run docker:check && NODE_ENV=test jest --maxWorkers=50%",
+    "test:setup": "./scripts/setup-testing.sh",
+    "test:cleanup": "./scripts/cleanup-testing.sh"
   },
   "dependencies": {
     "@infisical/sdk": "^4.0.6",
@@ -35,12 +46,17 @@
     "@types/cors": "^2.8.19",
     "@types/dockerode": "^3.3.26",
     "@types/express": "^4.17.21",
+    "@types/jest": "^29.5.0",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/morgan": "^1.9.9",
     "@types/node": "^20.11.5",
+    "@types/supertest": "^6.0.0",
     "@types/swagger-jsdoc": "^6.0.4",
     "@types/swagger-ui-express": "^4.1.8",
+    "jest": "^29.7.0",
     "nodemon": "^3.1.0",
+    "supertest": "^6.3.0",
+    "ts-jest": "^29.1.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3"
   }

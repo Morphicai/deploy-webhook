@@ -115,6 +115,18 @@ export function validateDeployPayload(payload: DeployRequest): { ok: true } | { 
     return { ok: false, error: 'Missing required field: containerPort' };
   }
 
+  // 验证端口号有效性
+  const port = Number(payload.port);
+  const containerPort = Number(payload.containerPort);
+  
+  if (isNaN(port) || port < 1 || port > 65535) {
+    return { ok: false, error: `Invalid port number: ${payload.port}. Port must be between 1 and 65535.` };
+  }
+  
+  if (isNaN(containerPort) || containerPort < 1 || containerPort > 65535) {
+    return { ok: false, error: `Invalid container port number: ${payload.containerPort}. Port must be between 1 and 65535.` };
+  }
+
   // 使用新的镜像白名单系统
   const imageStr = String(image);
   const repositoryId = payload.repositoryId || null;

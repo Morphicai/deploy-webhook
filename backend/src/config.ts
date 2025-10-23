@@ -1,13 +1,5 @@
-import { config } from 'dotenv';
 import { DeployConfig } from './types';
-
-config();
-
-const whitelistEnv = process.env.IMAGE_NAME_WHITELIST || process.env.IMAGE_WHITELIST || '';
-const imageNameWhitelist = whitelistEnv
-  .split(',')
-  .map(s => s.trim())
-  .filter(Boolean);
+import * as env from './env';
 
 function parseHeadersEnv(raw?: string): Record<string, string> {
   if (!raw) return {};
@@ -24,24 +16,24 @@ function parseHeadersEnv(raw?: string): Record<string, string> {
 }
 
 export const deployConfig: DeployConfig = {
-  port: parseInt(process.env.PORT || '9000', 10),
-  webhookSecret: process.env.WEBHOOK_SECRET || '',
-  imageName: process.env.IMAGE_NAME || 'focusbe/morphicai-app-shell',
-  registryHost: process.env.REGISTRY_HOST || 'registry.cn-hangzhou.aliyuncs.com',
-  hostPort: process.env.HOST_PORT || '8806',
-  containerPort: process.env.CONTAINER_PORT || '3000',
-  dockerRunOpts: process.env.DOCKER_RUN_OPTS || '',
-  updateScriptPath: process.env.UPDATE_SCRIPT_PATH || './scripts/deploy.sh',
-  dockerSockPath: process.env.DOCKER_SOCK_PATH || '/var/run/docker.sock',
-  dockerHost: process.env.DOCKER_HOST,
-  dockerTlsVerify: (process.env.DOCKER_TLS_VERIFY || '').trim() === '1' || (process.env.DOCKER_TLS_VERIFY || '').toLowerCase() === 'true',
-  dockerCertPath: process.env.DOCKER_CERT_PATH,
-  imageNameWhitelist,
-  dockerUsername: process.env.DOCKER_USERNAME,
-  dockerPassword: process.env.DOCKER_PASSWORD,
-  callbackUrl: process.env.CALLBACK_URL,
-  callbackHeaders: parseHeadersEnv(process.env.CALLBACK_HEADERS),
-  callbackSecret: process.env.CALLBACK_SECRET,
-  pruneImages: (process.env.PRUNE_IMAGES || '').toLowerCase() === 'true',
-  pruneStrategy: (process.env.PRUNE_STRATEGY as 'dangling' | 'none') || 'dangling',
+  port: env.PORT,
+  webhookSecret: env.WEBHOOK_SECRET,
+  imageName: env.IMAGE_NAME,
+  registryHost: env.REGISTRY_HOST,
+  hostPort: env.HOST_PORT,
+  containerPort: env.CONTAINER_PORT,
+  dockerRunOpts: env.DOCKER_RUN_OPTS,
+  updateScriptPath: env.UPDATE_SCRIPT_PATH,
+  dockerSockPath: env.DOCKER_SOCK_PATH,
+  dockerHost: env.DOCKER_HOST,
+  dockerTlsVerify: env.DOCKER_TLS_VERIFY,
+  dockerCertPath: env.DOCKER_CERT_PATH,
+  imageNameWhitelist: env.IMAGE_WHITELIST_MERGED,
+  dockerUsername: env.DOCKER_USERNAME,
+  dockerPassword: env.DOCKER_PASSWORD,
+  callbackUrl: env.CALLBACK_URL,
+  callbackHeaders: parseHeadersEnv(env.CALLBACK_HEADERS),
+  callbackSecret: env.CALLBACK_SECRET,
+  pruneImages: env.PRUNE_IMAGES,
+  pruneStrategy: env.PRUNE_STRATEGY,
 };
