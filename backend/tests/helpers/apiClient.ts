@@ -36,7 +36,14 @@ export class ApiClient {
     
     // 添加认证头
     if (this.authToken) {
-      req = req.set('x-admin-token', this.authToken);
+      // API Key 以 'dw_' 开头，使用 x-api-key header
+      if (this.authToken.startsWith('dw_')) {
+        req = req.set('x-api-key', this.authToken);
+      } 
+      // 否则使用 x-admin-token（用于 Admin Token 和 JWT）
+      else {
+        req = req.set('x-admin-token', this.authToken);
+      }
     }
     
     return req;
