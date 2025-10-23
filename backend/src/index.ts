@@ -9,7 +9,8 @@ import docsRouter from './routes/docs';
 import envRouter from './routes/env';
 import secretRouter from './routes/secrets';
 import secretGroupsRouter from './routes/secretGroups';
-import secretProvidersRouter from './routes/secretProviders';
+import secretSyncsRouter from './routes/secretSyncs';
+import webhookSecretSyncRouter from './routes/webhookSecretSync';
 import applicationsRouter from './routes/applications';
 import authRouter from './routes/auth';
 import webhooksRouter from './routes/webhooks';
@@ -46,7 +47,7 @@ export function createApp(): Express {
   // Admin API routes
   app.use('/api/secrets', secretRouter);
   app.use('/api/secret-groups', secretGroupsRouter);
-  app.use('/api/secret-providers', secretProvidersRouter);
+  app.use('/api/secret-syncs', secretSyncsRouter);
   app.use('/api/env', envRouter);
   app.use('/api/applications', applicationsRouter);
   app.use('/api/domains', domainsRouter);
@@ -65,6 +66,9 @@ export function createApp(): Express {
 
   // Webhook routes (不需要认证，使用签名验证)
   app.use('/webhooks', webhooksRouter);
+  
+  // Webhook Secret Sync routes (不需要认证，使用 token 验证)
+  app.use('/webhooks/sync', webhookSecretSyncRouter);
   
   // Webhook Deploy V2 routes (不需要认证，使用应用专用 token 验证)
   app.use('/webhook', webhookDeployRouter);

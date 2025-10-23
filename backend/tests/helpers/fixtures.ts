@@ -54,22 +54,20 @@ export function createTestApplication(overrides?: Partial<{
 
 /**
  * 生成测试秘钥配置 (V2 - 支持加密存储)
+ * 注意：V2 中所有秘钥必须属于一个分组
  */
-export function createTestSecret(overrides?: Partial<{
-  name: string;
-  value: string; // V2: 实际的秘钥值（会被加密存储）
-  provider: 'infisical' | 'file' | 'docker-secret' | 'manual';
-  reference: string | null; // V2: 可选的外部引用
-  groupId: number | null; // V2: 秘钥分组ID
-  metadata: Record<string, any>;
-}>) {
+export function createTestSecret(overrides: {
+  groupId: number; // V2: 必填 - 秘钥必须属于一个分组
+  name?: string;
+  value?: string; // V2: 实际的秘钥值（会被加密存储）
+  description?: string;
+  source?: 'manual' | 'synced'; // V2: 秘钥来源
+}) {
   return {
     name: 'test-secret',
     value: 'test-secret-value-12345', // V2: 必需的秘钥值
-    provider: 'manual' as const, // V2: 默认为手动创建
-    reference: null, // V2: 默认无外部引用
-    groupId: null, // V2: 默认不属于任何分组
-    metadata: {},
+    description: 'Test secret',
+    source: 'manual' as const, // V2: 默认为手动创建
     ...overrides,
   };
 }
@@ -89,33 +87,48 @@ export function createTestSecretGroup(overrides?: Partial<{
 }
 
 /**
- * 生成测试秘钥提供者配置 - Infisical
+ * 生成测试秘钥同步配置 (V2 - 替代 Provider)
  */
-export function createTestInfisicalProvider(overrides?: Partial<{
+export function createTestSecretSync(overrides?: Partial<{
   name: string;
-  enabled: boolean;
-  autoSync: boolean;
-  config: {
+  description: string;
+  sourceType: 'infisical';
+  sourceConfig: {
     clientId: string;
     clientSecret: string;
     projectId: string;
     environment: string;
-    secretPath: string;
+    path: string;
+    siteUrl: string;
   };
+  targetGroupId: number;
+  syncStrategy: 'merge' | 'replace';
+  syncTrigger: 'manual' | 'webhook' | 'schedule';
+  enableWebhook: boolean;
+  scheduleEnabled: boolean;
+  scheduleInterval: number;
+  enabled: boolean;
 }>) {
   return {
-    name: 'test-infisical-provider',
-    type: 'infisical',
-    enabled: true,
-    autoSync: false,
-    config: {
+    name: 'test-secret-sync',
+    description: 'Test secret sync configuration',
+    sourceType: 'infisical' as const,
+    sourceConfig: {
       clientId: 'test-client-id',
       clientSecret: 'test-client-secret',
       projectId: 'test-project-id',
       environment: 'dev',
-      secretPath: '/',
-      ...overrides?.config,
+      path: '/',
+      siteUrl: 'https://app.infisical.com',
+      ...overrides?.sourceConfig,
     },
+    targetGroupId: 1,
+    syncStrategy: 'merge' as const,
+    syncTrigger: 'manual' as const,
+    enableWebhook: false,
+    scheduleEnabled: false,
+    scheduleInterval: 60,
+    enabled: true,
     ...overrides,
   };
 }

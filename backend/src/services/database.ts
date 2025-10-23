@@ -22,12 +22,16 @@ function ensureDatabase(): Database.Database {
       description TEXT,
       provider_id INTEGER,
       auto_sync INTEGER NOT NULL DEFAULT 0,
+      sync_enabled INTEGER NOT NULL DEFAULT 0,
+      sync_path TEXT DEFAULT '/',
+      sync_strategy TEXT NOT NULL DEFAULT 'merge' CHECK(sync_strategy IN ('merge', 'replace')),
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now')),
       FOREIGN KEY (provider_id) REFERENCES secret_providers(id) ON DELETE SET NULL
     );
     CREATE INDEX IF NOT EXISTS idx_secret_groups_provider_id ON secret_groups(provider_id);
     CREATE INDEX IF NOT EXISTS idx_secret_groups_auto_sync ON secret_groups(auto_sync);
+    CREATE INDEX IF NOT EXISTS idx_secret_groups_sync_enabled ON secret_groups(sync_enabled);
     CREATE TRIGGER IF NOT EXISTS secret_groups_updated_at
     AFTER UPDATE ON secret_groups
     BEGIN

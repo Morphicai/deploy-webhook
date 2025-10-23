@@ -14,7 +14,7 @@ import {
   updateApplication 
 } from './applicationStore';
 import { getRepositoryById, getDefaultRepository, type RepositoryRecord } from './repositoryStore';
-import { syncAllAutoSyncProviders } from './secretSyncService';
+import { executeScheduledSyncs } from './secretSyncExecutor';
 
 function postJson(urlString: string, body: unknown, headers: Record<string, string> = {}): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -313,18 +313,20 @@ export class DeployService {
       this.log('Starting deployment', { deploymentId, name, image, version, port, containerPort, generatedName: !params.name });
       
       // 在部署前自动同步秘钥
-      this.log('Syncing secrets from auto-sync providers');
+      this.log('Syncing secrets from scheduled syncs');
       try {
-        const syncResults = await syncAllAutoSyncProviders();
+        const syncResults = await executeScheduledSyncs();
         const successCount = syncResults.filter(r => r.success).length;
         const totalCount = syncResults.length;
         if (totalCount > 0) {
           this.log(`Secret sync completed: ${successCount}/${totalCount} successful`, {
             results: syncResults.map(r => ({
-              provider: r.providerName,
+              syncName: r.syncName,
               success: r.success,
-              secretsCount: r.secretsCount,
-              error: r.error,
+              created: r.created,
+              updated: r.updated,
+              unchanged: r.unchanged,
+              errors: r.errors.length > 0 ? r.errors : undefined,
             })),
           });
         }

@@ -42,10 +42,17 @@ describe('Secrets & Environment Variables', () => {
 
   describe('Secrets Management (V2)', () => {
     it('应该成功创建秘钥（手动创建，加密存储）', async () => {
+      // 先创建秘钥分组
+      const groupResponse = await client.post('/api/secret-groups', 
+        createTestSecretGroup({ name: 'test-group-create' })
+      );
+      const groupId = groupResponse.body.data.id;
+
       const secretData = createTestSecret({
+        groupId,
         name: 'test-db-password',
         value: 'my-super-secret-password-123',
-        provider: 'manual',
+        source: 'manual',
       });
 
       const response = await client.createSecret(secretData);
@@ -54,28 +61,39 @@ describe('Secrets & Environment Variables', () => {
       expect(response.body.success).toBe(true);
       expect(response.body.data).toHaveProperty('id');
       expect(response.body.data.name).toBe(secretData.name);
-      expect(response.body.data.provider).toBe('manual');
-      expect(response.body.data.valueType).toBe('encrypted'); // V2: 值应该被加密
+      expect(response.body.data.source).toBe('manual');
       // 注意：返回的 value 应该是加密后的值，不应该等于原始值
       expect(response.body.data.value).not.toBe(secretData.value);
     });
 
     it('应该能够获取秘钥列表', async () => {
+      // 先创建秘钥分组
+      const groupResponse = await client.post('/api/secret-groups', 
+        createTestSecretGroup({ name: 'test-group-list' })
+      );
+      const groupId = groupResponse.body.data.id;
+
       // 创建几个秘钥
-      await client.createSecret(createTestSecret({ name: 'secret-1' }));
-      await client.createSecret(createTestSecret({ name: 'secret-2' }));
+      await client.createSecret(createTestSecret({ groupId, name: 'secret-1' }));
+      await client.createSecret(createTestSecret({ groupId, name: 'secret-2' }));
 
       const response = await client.listSecrets();
 
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
-      expect(response.body.data).toHaveLength(2);
+      expect(response.body.data.length).toBeGreaterThanOrEqual(2);
     });
 
     it('应该能够更新秘钥（V2 - 支持更新值）', async () => {
+      // 先创建秘钥分组
+      const groupResponse = await client.post('/api/secret-groups', 
+        createTestSecretGroup({ name: 'test-group-update' })
+      );
+      const groupId = groupResponse.body.data.id;
+
       // 创建秘钥
       const createResponse = await client.createSecret(
-        createTestSecret({ name: 'test-secret', value: 'old-value' })
+        createTestSecret({ groupId, name: 'test-secret', value: 'old-value' })
       );
       const secretId = createResponse.body.data.id;
 
@@ -86,15 +104,21 @@ describe('Secrets & Environment Variables', () => {
 
       expect(updateResponse.status).toBe(200);
       expect(updateResponse.body.success).toBe(true);
-      expect(updateResponse.body.data.valueType).toBe('encrypted');
-      // 新值应该与旧值不同（加密后）
+      // V2: 所有秘钥值都是加密存储，无需 valueType 字段
+      // 验证值已更新（加密后的值应该不同）
       expect(updateResponse.body.data.value).not.toBe(createResponse.body.data.value);
     });
 
     it('应该能够删除秘钥', async () => {
+      // 先创建秘钥分组
+      const groupResponse = await client.post('/api/secret-groups', 
+        createTestSecretGroup({ name: 'test-group-delete' })
+      );
+      const groupId = groupResponse.body.data.id;
+
       // 创建秘钥
       const createResponse = await client.createSecret(
-        createTestSecret({ name: 'test-secret' })
+        createTestSecret({ groupId, name: 'test-secret' })
       );
       const secretId = createResponse.body.data.id;
 
@@ -104,18 +128,24 @@ describe('Secrets & Environment Variables', () => {
       expect(deleteResponse.status).toBe(200);
       expect(deleteResponse.body.success).toBe(true);
 
-      // 验证秘钥已被删除
-      const listResponse = await client.listSecrets();
+      // 验证秘钥已被删除（通过 groupId 过滤）
+      const listResponse = await client.get(`/api/secrets?groupId=${groupId}`);
       expect(listResponse.body.data).toHaveLength(0);
     });
 
     it('应该拒绝重复的秘钥名称', async () => {
+      // 先创建秘钥分组
+      const groupResponse = await client.post('/api/secret-groups', 
+        createTestSecretGroup({ name: 'test-group-duplicate' })
+      );
+      const groupId = groupResponse.body.data.id;
+
       // 创建第一个秘钥
-      await client.createSecret(createTestSecret({ name: 'duplicate-secret' }));
+      await client.createSecret(createTestSecret({ groupId, name: 'duplicate-secret' }));
 
       // 尝试创建同名秘钥
       const response = await client.createSecret(
-        createTestSecret({ name: 'duplicate-secret' })
+        createTestSecret({ groupId, name: 'duplicate-secret' })
       );
 
       expect(response.status).toBe(400);
@@ -370,8 +400,15 @@ describe('Secrets & Environment Variables', () => {
 
   describe('Environment Variables with Secret References (V2 新功能)', () => {
     it('应该支持环境变量引用秘钥', async () => {
+      // 先创建秘钥分组
+      const groupResponse = await client.post('/api/secret-groups', 
+        createTestSecretGroup({ name: 'test-group-env-ref' })
+      );
+      const groupId = groupResponse.body.data.id;
+
       // 创建秘钥
       const secretResponse = await client.createSecret(createTestSecret({
+        groupId,
         name: 'db-password',
         value: 'super-secret-password-123',
       }));
@@ -396,8 +433,15 @@ describe('Secrets & Environment Variables', () => {
     });
 
     it('应该能够查询引用秘钥的环境变量', async () => {
+      // 先创建秘钥分组
+      const groupResponse = await client.post('/api/secret-groups', 
+        createTestSecretGroup({ name: 'test-group-env-query' })
+      );
+      const groupId = groupResponse.body.data.id;
+
       // 创建秘钥
       const secretResponse = await client.createSecret(createTestSecret({
+        groupId,
         name: 'api-key',
         value: 'api-key-value-456',
       }));

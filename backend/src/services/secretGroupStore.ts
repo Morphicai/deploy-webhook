@@ -10,6 +10,9 @@ export interface SecretGroupRecord {
   description: string | null;
   providerId: number | null;
   autoSync: boolean;
+  syncEnabled: boolean;
+  syncPath: string;
+  syncStrategy: 'merge' | 'replace';
   createdAt: string;
   updatedAt: string;
 }
@@ -36,6 +39,9 @@ function mapRow(row: any): SecretGroupRecord {
     description: row.description,
     providerId: row.provider_id,
     autoSync: Boolean(row.auto_sync),
+    syncEnabled: Boolean(row.sync_enabled),
+    syncPath: row.sync_path || '/',
+    syncStrategy: (row.sync_strategy || 'merge') as 'merge' | 'replace',
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -47,7 +53,7 @@ function mapRow(row: any): SecretGroupRecord {
 export function listSecretGroups(): SecretGroupRecord[] {
   const db = getDb();
   const rows = db.prepare(`
-    SELECT id, name, description, provider_id, auto_sync, created_at, updated_at
+    SELECT id, name, description, provider_id, auto_sync, sync_enabled, sync_path, sync_strategy, created_at, updated_at
     FROM secret_groups
     ORDER BY id ASC
   `).all();
@@ -60,7 +66,7 @@ export function listSecretGroups(): SecretGroupRecord[] {
 export function getSecretGroupById(id: number): SecretGroupRecord | null {
   const db = getDb();
   const row = db.prepare(`
-    SELECT id, name, description, provider_id, auto_sync, created_at, updated_at
+    SELECT id, name, description, provider_id, auto_sync, sync_enabled, sync_path, sync_strategy, created_at, updated_at
     FROM secret_groups
     WHERE id = ?
   `).get(id);
@@ -73,7 +79,7 @@ export function getSecretGroupById(id: number): SecretGroupRecord | null {
 export function getSecretGroupByName(name: string): SecretGroupRecord | null {
   const db = getDb();
   const row = db.prepare(`
-    SELECT id, name, description, provider_id, auto_sync, created_at, updated_at
+    SELECT id, name, description, provider_id, auto_sync, sync_enabled, sync_path, sync_strategy, created_at, updated_at
     FROM secret_groups
     WHERE name = ?
   `).get(name);
@@ -272,5 +278,18 @@ export function getAllSecretGroupsStats(): SecretGroupStats[] {
     const stats = getSecretGroupStats(group.id);
     return stats!;
   });
+}
+
+/**
+ * 更新秘钥分组的同步状态
+ * 这是一个简化的占位函数，实际同步状态应该在 secret_syncs 表中跟踪
+ */
+export function updateSecretGroupSyncStatus(
+  groupId: number,
+  status: 'success' | 'failed' | 'in_progress',
+  errorMessage?: string
+): void {
+  // 占位实现 - 实际应该更新相关的同步记录
+  console.log(`[SecretGroupStore] Sync status for group ${groupId}: ${status}`, errorMessage);
 }
 
