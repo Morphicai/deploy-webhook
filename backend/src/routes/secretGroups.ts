@@ -124,7 +124,7 @@ router.get('/:id', requireAdmin, (req: Request, res: Response) => {
 router.post('/', requireAdmin, (req: Request, res: Response) => {
   try {
     const group = createSecretGroup(req.body);
-    res.json({
+    res.status(201).json({
       success: true,
       data: group,
       message: 'Secret group created successfully',
@@ -257,7 +257,7 @@ router.delete('/:id', requireAdmin, (req: Request, res: Response) => {
     }
     
     if (error.message.includes('Cannot delete')) {
-      return res.status(400).json({
+      return res.status(409).json({
         success: false,
         error: error.message,
       });

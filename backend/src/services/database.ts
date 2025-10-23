@@ -20,9 +20,14 @@ function ensureDatabase(): Database.Database {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL UNIQUE,
       description TEXT,
+      provider_id INTEGER,
+      auto_sync INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (provider_id) REFERENCES secret_providers(id) ON DELETE SET NULL
     );
+    CREATE INDEX IF NOT EXISTS idx_secret_groups_provider_id ON secret_groups(provider_id);
+    CREATE INDEX IF NOT EXISTS idx_secret_groups_auto_sync ON secret_groups(auto_sync);
     CREATE TRIGGER IF NOT EXISTS secret_groups_updated_at
     AFTER UPDATE ON secret_groups
     BEGIN
