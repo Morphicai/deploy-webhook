@@ -137,6 +137,35 @@ export class ApiClient {
   }
 
   /**
+   * 创建应用 (V2 - 预注册)
+   */
+  async createApplication(data: {
+    name: string;
+    image: string;
+    ports?: Array<{ host: number; container: number }>;
+    repositoryId?: number;
+    envVars?: Record<string, any>;
+    webhookEnabled?: boolean;
+  }): Promise<Response> {
+    return this.post('/api/applications', data);
+  }
+
+  /**
+   * 更新应用
+   */
+  async updateApplication(id: number, data: Partial<{
+    name: string;
+    image: string;
+    ports: Array<{ host: number; container: number }>;
+    repositoryId: number;
+    envVars: Record<string, any>;
+    webhookEnabled: boolean;
+    webhookToken: string;
+  }>): Promise<Response> {
+    return this.put(`/api/applications/${id}`, data);
+  }
+
+  /**
    * 删除应用
    */
   async deleteApplication(id: number): Promise<Response> {
@@ -144,12 +173,25 @@ export class ApiClient {
   }
 
   /**
-   * 创建秘钥
+   * Webhook 部署 V2
+   */
+  async webhookDeployV2(data: {
+    applicationId: number;
+    version: string;
+    token: string; // 应用专用 webhook token
+  }): Promise<Response> {
+    return this.post('/webhook/deploy', data);
+  }
+
+  /**
+   * 创建秘钥 (V2 - 支持加密存储)
    */
   async createSecret(data: {
     name: string;
-    provider: string;
-    reference: string;
+    value: string; // V2: 实际的秘钥值
+    provider?: 'infisical' | 'file' | 'docker-secret' | 'manual';
+    reference?: string | null;
+    groupId?: number | null;
     metadata?: Record<string, any>;
   }): Promise<Response> {
     return this.post('/api/secrets', data);
@@ -183,13 +225,16 @@ export class ApiClient {
   }
 
   /**
-   * 创建环境变量
+   * 创建环境变量 (V2 - 支持秘钥引用)
    */
   async createEnvVar(data: {
     scope: 'global' | 'project';
-    projectName?: string;
+    projectId?: number; // V2: 使用 projectId
+    projectName?: string; // 向后兼容
     key: string;
-    value: string;
+    value?: string;
+    valueType?: 'plain' | 'secret_ref'; // V2: 值类型
+    secretId?: number | null; // V2: 引用的秘钥ID
   }): Promise<Response> {
     return this.post('/api/env', data);
   }

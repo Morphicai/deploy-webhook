@@ -8,7 +8,11 @@ import { buildErrorResponse } from '../utils/errors';
 import https from 'https';
 import http from 'http';
 import { buildEnvironmentForProject } from './envStore';
-import { upsertApplication } from './applicationStore';
+import { 
+  getApplicationByName, 
+  createApplication, 
+  updateApplication 
+} from './applicationStore';
 import { getRepositoryById, getDefaultRepository, type RepositoryRecord } from './repositoryStore';
 import { syncAllAutoSyncProviders } from './secretSyncService';
 
@@ -265,8 +269,7 @@ export class DeployService {
     const deploymentId = this.generateDeploymentId();
     const startedAt = new Date().toISOString();
     
-    // 向后兼容：image 优先，其次是 repo
-    const image = String(params.image || params.repo);
+    const image = String(params.image);
     
     // 自动生成应用名称（如果未提供）
     const name = params.name ? String(params.name) : this.generateAppName(image);
@@ -336,7 +339,7 @@ export class DeployService {
       this.log('Stopping and removing existing container if present', { name });
       await this.stopAndRemoveContainer(name);
 
-      const envFromStore = buildEnvironmentForProject(name);
+      const envFromStore = await buildEnvironmentForProject(name);
       const mergedEnv: Record<string, string> = { ...envFromStore };
       
       if (params.env) {
@@ -362,8 +365,25 @@ export class DeployService {
       this.log('Starting container', { name });
       await container.start();
 
-      // 保存应用信息时使用 image 字段
-      upsertApplication({ name, repo: image, version, port, containerPort });
+      // 保存或更新应用信息
+      const existing = getApplicationByName(name);
+      if (existing) {
+        updateApplication(existing.id, {
+          version,
+          ports: [{ host: port, container: containerPort }],
+          lastDeployedAt: new Date().toISOString(),
+          status: 'running',
+        });
+      } else {
+        createApplication({
+          name,
+          image,
+          version,
+          ports: [{ host: port, container: containerPort }],
+          status: 'running',
+          lastDeployedAt: new Date().toISOString(),
+        });
+      }
 
       await this.pruneImagesIfNeeded();
 

@@ -53,19 +53,37 @@ export function createTestApplication(overrides?: Partial<{
 }
 
 /**
- * 生成测试秘钥配置
+ * 生成测试秘钥配置 (V2 - 支持加密存储)
  */
 export function createTestSecret(overrides?: Partial<{
   name: string;
-  provider: string;
-  reference: string;
+  value: string; // V2: 实际的秘钥值（会被加密存储）
+  provider: 'infisical' | 'file' | 'docker-secret' | 'manual';
+  reference: string | null; // V2: 可选的外部引用
+  groupId: number | null; // V2: 秘钥分组ID
   metadata: Record<string, any>;
 }>) {
   return {
     name: 'test-secret',
-    provider: 'file',
-    reference: '/path/to/secret',
+    value: 'test-secret-value-12345', // V2: 必需的秘钥值
+    provider: 'manual' as const, // V2: 默认为手动创建
+    reference: null, // V2: 默认无外部引用
+    groupId: null, // V2: 默认不属于任何分组
     metadata: {},
+    ...overrides,
+  };
+}
+
+/**
+ * 生成测试秘钥分组配置 (V2 新增)
+ */
+export function createTestSecretGroup(overrides?: Partial<{
+  name: string;
+  description: string;
+}>) {
+  return {
+    name: 'test-secret-group',
+    description: 'Test secret group for automated testing',
     ...overrides,
   };
 }
@@ -103,19 +121,24 @@ export function createTestInfisicalProvider(overrides?: Partial<{
 }
 
 /**
- * 生成测试环境变量
+ * 生成测试环境变量 (V2 - 支持秘钥引用)
  */
 export function createTestEnvVar(overrides?: Partial<{
   scope: 'global' | 'project';
-  projectName: string;
+  projectId: number; // V2: 使用 projectId 代替 projectName
+  projectName: string; // 保留用于兼容性
   key: string;
   value: string;
+  valueType: 'plain' | 'secret_ref'; // V2: 值类型
+  secretId: number | null; // V2: 引用的秘钥ID
 }>) {
   return {
     scope: 'global' as const,
-    projectName: '',
+    projectName: '', // 向后兼容
     key: 'TEST_VAR',
     value: 'test-value',
+    valueType: 'plain' as const, // V2: 默认为纯文本
+    secretId: null, // V2: 默认不引用秘钥
     ...overrides,
   };
 }

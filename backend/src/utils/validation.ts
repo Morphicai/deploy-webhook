@@ -97,14 +97,13 @@ function extractAPIKey(req: Request): string | null {
 }
 
 export function validateDeployPayload(payload: DeployRequest): { ok: true } | { ok: false; error: string } {
-  // 向后兼容：如果提供了 repo 但没有 image，使用 repo 作为 image
-  const image = payload.image || payload.repo;
-  
   // 必填字段：image, port, containerPort
   // name 非必填，会自动生成
   // version 非必填，默认为 "latest"
+  const image = payload.image;
+  
   if (!image || image === '') {
-    return { ok: false, error: 'Missing required field: image (or repo for backward compatibility)' };
+    return { ok: false, error: 'Missing required field: image' };
   }
   
   if (payload.port === undefined || payload.port === null || payload.port === '') {
@@ -138,15 +137,6 @@ export function validateDeployPayload(payload: DeployRequest): { ok: true } | { 
       ok: false, 
       error: `Image "${imageStr}" from repository is not allowed by whitelist. Please check system settings.` 
     };
-  }
-
-  // 向后兼容：检查旧的环境变量白名单（如果配置了）
-  if (deployConfig.imageNameWhitelist.length > 0) {
-    const allowed = deployConfig.imageNameWhitelist;
-    const isAllowedLegacy = allowed.includes(imageStr);
-    if (!isAllowedLegacy) {
-      return { ok: false, error: `Image not allowed by legacy whitelist: ${imageStr}` };
-    }
   }
 
   return { ok: true };

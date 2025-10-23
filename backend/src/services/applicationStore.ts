@@ -17,6 +17,8 @@ export interface ApplicationRecord {
   envVars: Record<string, string>;
   status: 'running' | 'stopped' | 'error' | 'deploying';
   lastDeployedAt: string | null;
+  webhookEnabled: boolean;
+  webhookToken: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -33,6 +35,8 @@ const applicationSchema = z.object({
   repositoryId: z.number().nullish(),
   ports: z.array(portMappingSchema).min(1),
   envVars: z.record(z.string(), z.string()).optional(),
+  status: z.enum(['running', 'stopped', 'error', 'deploying']).optional(),
+  lastDeployedAt: z.string().nullish(),
 });
 
 type ApplicationInput = z.infer<typeof applicationSchema>;
@@ -48,6 +52,8 @@ function mapRow(row: any): ApplicationRecord {
     envVars: JSON.parse(row.env_vars || '{}'),
     status: row.status,
     lastDeployedAt: row.last_deployed_at,
+    webhookEnabled: Boolean(row.webhook_enabled),
+    webhookToken: row.webhook_token,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -60,7 +66,8 @@ export function listApplications(): ApplicationRecord[] {
   const db = getDb();
   const rows = db.prepare(`
     SELECT id, name, image, version, repository_id, ports, env_vars,
-           status, last_deployed_at, created_at, updated_at
+           status, last_deployed_at, webhook_enabled, webhook_token,
+           created_at, updated_at
     FROM applications
     ORDER BY id DESC
   `).all();
@@ -74,7 +81,8 @@ export function getApplicationById(id: number): ApplicationRecord | null {
   const db = getDb();
   const row = db.prepare(`
     SELECT id, name, image, version, repository_id, ports, env_vars,
-           status, last_deployed_at, created_at, updated_at
+           status, last_deployed_at, webhook_enabled, webhook_token,
+           created_at, updated_at
     FROM applications
     WHERE id = ?
   `).get(id);
@@ -88,7 +96,8 @@ export function getApplicationByName(name: string): ApplicationRecord | null {
   const db = getDb();
   const row = db.prepare(`
     SELECT id, name, image, version, repository_id, ports, env_vars,
-           status, last_deployed_at, created_at, updated_at
+           status, last_deployed_at, webhook_enabled, webhook_token,
+           created_at, updated_at
     FROM applications
     WHERE name = ?
   `).get(name);
@@ -109,8 +118,8 @@ export function createApplication(input: ApplicationInput): ApplicationRecord {
   }
   
   const stmt = db.prepare(`
-    INSERT INTO applications (name, image, version, repository_id, ports, env_vars, status)
-    VALUES (?, ?, ?, ?, ?, ?, 'stopped')
+    INSERT INTO applications (name, image, version, repository_id, ports, env_vars, status, last_deployed_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `);
   
   const info = stmt.run(
@@ -119,7 +128,9 @@ export function createApplication(input: ApplicationInput): ApplicationRecord {
     parsed.version || null,
     parsed.repositoryId || null,
     JSON.stringify(parsed.ports),
-    JSON.stringify(parsed.envVars || {})
+    JSON.stringify(parsed.envVars || {}),
+    parsed.status || 'stopped',
+    parsed.lastDeployedAt || null
   );
   
   const created = getApplicationById(Number(info.lastInsertRowid));
@@ -213,45 +224,5 @@ export async function checkContainerStatus(name: string): Promise<'running' | 's
     return info.State.Running ? 'running' : 'stopped';
   } catch (error) {
     return 'stopped';
-  }
-}
-
-/**
- * 向后兼容：旧的 upsert 函数（已废弃，保留用于部署服务）
- * @deprecated 使用 createApplication 或 updateApplication 替代
- */
-export function upsertApplication(params: { 
-  name: string; 
-  repo: string; 
-  version: string; 
-  port: number; 
-  containerPort: number 
-}): void {
-  const db = getDb();
-  const existing = getApplicationByName(params.name);
-  
-  if (existing) {
-    // 更新
-    db.prepare(`
-      UPDATE applications 
-      SET image = ?, version = ?, ports = ?, last_deployed_at = datetime('now'), status = 'running'
-      WHERE name = ?
-    `).run(
-      params.repo,
-      params.version,
-      JSON.stringify([{ host: params.port, container: params.containerPort }]),
-      params.name
-    );
-  } else {
-    // 创建
-    db.prepare(`
-      INSERT INTO applications (name, image, version, ports, status, last_deployed_at)
-      VALUES (?, ?, ?, ?, 'running', datetime('now'))
-    `).run(
-      params.name,
-      params.repo,
-      params.version,
-      JSON.stringify([{ host: params.port, container: params.containerPort }])
-    );
   }
 }

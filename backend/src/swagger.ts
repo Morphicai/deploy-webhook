@@ -45,10 +45,6 @@ const swaggerDefinition = {
             type: 'string', 
             description: 'Image tag/version to deploy (optional, defaults to "latest"). Examples: latest, v1.0.0, stable' 
           },
-          repo: { 
-            type: 'string', 
-            description: '[Deprecated] Use "image" field instead. Kept for backward compatibility.' 
-          },
           port: { 
             oneOf: [{ type: 'number' }, { type: 'string' }], 
             description: 'Host port to expose.' 

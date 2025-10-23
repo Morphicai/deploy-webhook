@@ -2,28 +2,6 @@ import Database from 'better-sqlite3';
 import fs from 'fs';
 import path from 'path';
 
-export type SecretProvider = 'infisical' | 'file' | 'docker-secret';
-
-export interface SecretRecord {
-  id: number;
-  name: string;
-  provider: SecretProvider;
-  reference: string;
-  metadata: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-type RawSecretRow = {
-  id: number;
-  name: string;
-  provider: SecretProvider;
-  reference: string;
-  metadata: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
-
 export const DB_DIR = process.env.DB_PATH || path.join(process.cwd(), 'data');
 export const DB_FILE = path.join(DB_DIR, 'deploy-webhook.db');
 
@@ -38,15 +16,37 @@ function ensureDatabase(): Database.Database {
   db.exec(`
     PRAGMA journal_mode = WAL;
     PRAGMA foreign_keys = ON;
-    CREATE TABLE IF NOT EXISTS secrets (
+    CREATE TABLE IF NOT EXISTS secret_groups (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL UNIQUE,
-      provider TEXT NOT NULL,
-      reference TEXT NOT NULL,
-      metadata TEXT NOT NULL DEFAULT '{}',
+      description TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+    CREATE TRIGGER IF NOT EXISTS secret_groups_updated_at
+    AFTER UPDATE ON secret_groups
+    BEGIN
+      UPDATE secret_groups SET updated_at = datetime('now') WHERE id = NEW.id;
+    END;
+    CREATE TABLE IF NOT EXISTS secrets (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      group_id INTEGER NOT NULL,
+      value TEXT NOT NULL,
+      description TEXT,
+      source TEXT NOT NULL DEFAULT 'manual' CHECK(source IN ('manual', 'synced')),
+      provider_id INTEGER,
+      provider_reference TEXT,
+      last_synced_at TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(group_id, name),
+      FOREIGN KEY (group_id) REFERENCES secret_groups(id) ON DELETE CASCADE,
+      FOREIGN KEY (provider_id) REFERENCES secret_providers(id) ON DELETE SET NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_secrets_group_id ON secrets(group_id);
+    CREATE INDEX IF NOT EXISTS idx_secrets_source ON secrets(source);
+    CREATE INDEX IF NOT EXISTS idx_secrets_provider_id ON secrets(provider_id);
     CREATE TRIGGER IF NOT EXISTS secrets_updated_at
     AFTER UPDATE ON secrets
     BEGIN
@@ -55,13 +55,20 @@ function ensureDatabase(): Database.Database {
     CREATE TABLE IF NOT EXISTS environment_variables (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       scope TEXT NOT NULL CHECK(scope IN ('global', 'project')),
-      project_name TEXT NOT NULL DEFAULT '',
+      project_id INTEGER,
       key TEXT NOT NULL,
       value TEXT NOT NULL,
+      value_type TEXT NOT NULL DEFAULT 'plain' CHECK(value_type IN ('plain', 'secret_ref')),
+      secret_id INTEGER,
+      description TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-      UNIQUE(scope, project_name, key)
+      UNIQUE(scope, project_id, key),
+      FOREIGN KEY (project_id) REFERENCES applications(id) ON DELETE CASCADE,
+      FOREIGN KEY (secret_id) REFERENCES secrets(id) ON DELETE SET NULL
     );
+    CREATE INDEX IF NOT EXISTS idx_env_vars_project_id ON environment_variables(project_id);
+    CREATE INDEX IF NOT EXISTS idx_env_vars_secret_id ON environment_variables(secret_id);
     CREATE TRIGGER IF NOT EXISTS environment_variables_updated_at
     AFTER UPDATE ON environment_variables
     BEGIN
@@ -77,10 +84,15 @@ function ensureDatabase(): Database.Database {
       env_vars TEXT NOT NULL DEFAULT '{}',
       status TEXT NOT NULL DEFAULT 'stopped',
       last_deployed_at TEXT,
+      webhook_enabled INTEGER NOT NULL DEFAULT 1,
+      webhook_token TEXT,
+      auto_deploy INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now')),
       FOREIGN KEY (repository_id) REFERENCES repositories(id) ON DELETE SET NULL
     );
+    CREATE INDEX IF NOT EXISTS idx_applications_webhook_token ON applications(webhook_token);
+    CREATE INDEX IF NOT EXISTS idx_applications_webhook_enabled ON applications(webhook_enabled);
     CREATE TRIGGER IF NOT EXISTS applications_updated_at
     AFTER UPDATE ON applications
     BEGIN
@@ -216,20 +228,27 @@ function ensureDatabase(): Database.Database {
     );
     CREATE INDEX IF NOT EXISTS idx_secret_syncs_provider_id ON secret_syncs(provider_id);
     CREATE INDEX IF NOT EXISTS idx_secret_syncs_status ON secret_syncs(status);
+    CREATE TABLE IF NOT EXISTS deployment_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      application_id INTEGER NOT NULL,
+      version TEXT NOT NULL,
+      status TEXT NOT NULL CHECK(status IN ('pending', 'success', 'failed')),
+      triggered_by TEXT NOT NULL CHECK(triggered_by IN ('webhook', 'manual', 'api')),
+      error_message TEXT,
+      metadata TEXT NOT NULL DEFAULT '{}',
+      started_at TEXT NOT NULL DEFAULT (datetime('now')),
+      completed_at TEXT,
+      FOREIGN KEY (application_id) REFERENCES applications(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_deployment_logs_application_id ON deployment_logs(application_id);
+    CREATE INDEX IF NOT EXISTS idx_deployment_logs_status ON deployment_logs(status);
+    CREATE INDEX IF NOT EXISTS idx_deployment_logs_started_at ON deployment_logs(started_at);
   `);
 
   return db;
 }
 
 const databaseInstance = ensureDatabase();
-
-// Run migrations
-import { migration002_updateEnvTableProjectId } from '../migrations/002_update_env_table_project_id';
-try {
-  migration002_updateEnvTableProjectId();
-} catch (error) {
-  console.error('[Database] Migration error:', error);
-}
 
 // Initialize default repository
 import { initializeDefaultRepository } from './repositoryStore';
@@ -241,95 +260,4 @@ initializeWebhooksTable();
 
 export function getDb(): Database.Database {
   return databaseInstance;
-}
-
-function mapRow(row: RawSecretRow): SecretRecord {
-  return {
-    id: row.id,
-    name: row.name,
-    provider: row.provider,
-    reference: row.reference,
-    metadata: row.metadata ?? '{}',
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
-  };
-}
-
-export function listSecrets(): SecretRecord[] {
-  const stmt = databaseInstance.prepare<[], RawSecretRow>(
-    `SELECT id, name, provider, reference, metadata, created_at as createdAt, updated_at as updatedAt FROM secrets ORDER BY id DESC`
-  );
-  return stmt.all().map(mapRow);
-}
-
-export function getSecretByName(name: string): SecretRecord | undefined {
-  const stmt = databaseInstance.prepare<[string], RawSecretRow>(
-    `SELECT id, name, provider, reference, metadata, created_at as createdAt, updated_at as updatedAt FROM secrets WHERE name = ?`
-  );
-  const row = stmt.get(name);
-  return row ? mapRow(row) : undefined;
-}
-
-interface CreateSecretInput {
-  name: string;
-  provider: 'infisical' | 'file' | 'docker-secret';
-  reference: string;
-  metadata?: Record<string, unknown>;
-}
-
-export function createSecret(input: CreateSecretInput): SecretRecord {
-  const stmt = databaseInstance.prepare<{ name: string; provider: string; reference: string; metadata: string }>(
-    `INSERT INTO secrets (name, provider, reference, metadata) VALUES (@name, @provider, @reference, @metadata)`
-  );
-  const metadata = JSON.stringify(input.metadata || {});
-  const info = stmt.run({ ...input, metadata });
-  return {
-    id: Number(info.lastInsertRowid),
-    name: input.name,
-    provider: input.provider,
-    reference: input.reference,
-    metadata,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
-}
-
-interface UpdateSecretInput {
-  id: number;
-  provider?: 'infisical' | 'file' | 'docker-secret';
-  reference?: string;
-  metadata?: Record<string, unknown>;
-}
-
-export function updateSecret(input: UpdateSecretInput): SecretRecord {
-  const currentRaw = databaseInstance
-    .prepare<[number], RawSecretRow & { created_at?: string; updated_at?: string }>(`SELECT id, name, provider, reference, metadata, created_at as createdAt, updated_at as updatedAt FROM secrets WHERE id = ?`)
-    .get(input.id);
-  if (!currentRaw) throw new Error(`Secret with id=${input.id} not found`);
-  const current = mapRow(currentRaw);
-  if (!current) throw new Error(`Secret with id=${input.id} not found`);
-
-  const provider = input.provider ?? current.provider;
-  const reference = input.reference ?? current.reference;
-  const metadata = JSON.stringify(input.metadata ?? JSON.parse(current.metadata || '{}'));
-
-  databaseInstance
-    .prepare<{ id: number; provider: string; reference: string; metadata: string }>(
-      `UPDATE secrets SET provider = @provider, reference = @reference, metadata = @metadata WHERE id = @id`
-    )
-    .run({ id: input.id, provider, reference, metadata });
-
-  return {
-    id: input.id,
-    name: current.name,
-    provider,
-    reference,
-    metadata,
-    createdAt: current.createdAt,
-    updatedAt: new Date().toISOString(),
-  };
-}
-
-export function deleteSecret(id: number): void {
-  databaseInstance.prepare(`DELETE FROM secrets WHERE id = ?`).run(id);
 }

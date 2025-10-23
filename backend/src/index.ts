@@ -8,10 +8,12 @@ import { DeployRequest, HealthResponse } from './types';
 import docsRouter from './routes/docs';
 import envRouter from './routes/env';
 import secretRouter from './routes/secrets';
+import secretGroupsRouter from './routes/secretGroups';
 import secretProvidersRouter from './routes/secretProviders';
 import applicationsRouter from './routes/applications';
 import authRouter from './routes/auth';
 import webhooksRouter from './routes/webhooks';
+import webhookDeployRouter from './routes/webhookDeploy';
 import repositoriesRouter from './routes/repositories';
 import imageWhitelistRouter from './routes/imageWhitelist';
 import caddyRouter from './routes/caddy';
@@ -43,6 +45,7 @@ export function createApp(): Express {
 
   // Admin API routes
   app.use('/api/secrets', secretRouter);
+  app.use('/api/secret-groups', secretGroupsRouter);
   app.use('/api/secret-providers', secretProvidersRouter);
   app.use('/api/env', envRouter);
   app.use('/api/applications', applicationsRouter);
@@ -62,6 +65,9 @@ export function createApp(): Express {
 
   // Webhook routes (不需要认证，使用签名验证)
   app.use('/webhooks', webhooksRouter);
+  
+  // Webhook Deploy V2 routes (不需要认证，使用应用专用 token 验证)
+  app.use('/webhook', webhookDeployRouter);
 
   /**
    * @openapi
@@ -136,7 +142,7 @@ export function createApp(): Express {
           headerSecretLength: req.header('x-webhook-secret')?.length || 0,
           bodySecretLength: (req.body?.secret as string)?.length || 0,
           configuredSecretLength: env.WEBHOOK_SECRET.length,
-          requestBody: { name: req.body?.name, repo: req.body?.repo, version: req.body?.version },
+          requestBody: { name: req.body?.name, image: req.body?.image, version: req.body?.version },
         });
         return res.status(401).json({ 
           success: false, 
@@ -154,7 +160,6 @@ export function createApp(): Express {
         name: req.body?.name,
         image: req.body?.image,
         version: req.body?.version,
-        repo: req.body?.repo,  // 向后兼容
         port: req.body?.port,
         containerPort: req.body?.containerPort,
         env: req.body?.env,

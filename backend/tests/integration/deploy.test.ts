@@ -305,5 +305,271 @@ describe('Application Deployment', () => {
       expect(response.body.uptime).toBeDefined();
     });
   });
+
+  describe('Application Pre-registration (V2 新功能)', () => {
+    it('应该成功预注册应用', async () => {
+      const testPort = generateTestPort();
+      const appData = {
+        name: 'pre-registered-app',
+        image: 'nginx',
+        ports: [{ host: testPort, container: 80 }],
+        webhookEnabled: true,
+      };
+
+      const response = await client.createApplication(appData);
+
+      expect(response.status).toBe(201);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data).toHaveProperty('id');
+      expect(response.body.data).toHaveProperty('webhookToken'); // V2: 自动生成 webhook token
+      expect(response.body.data.webhookEnabled).toBe(true);
+    });
+
+    it('应该支持启用/禁用应用的 webhook', async () => {
+      const testPort = generateTestPort();
+      const appData = {
+        name: 'webhook-toggle-app',
+        image: 'nginx',
+        ports: [{ host: testPort, container: 80 }],
+        webhookEnabled: false,
+      };
+
+      // 创建应用，不启用 webhook
+      const createResponse = await client.createApplication(appData);
+      const appId = createResponse.body.data.id;
+
+      expect(createResponse.body.data.webhookEnabled).toBe(false);
+      expect(createResponse.body.data.webhookToken).toBeNull();
+
+      // 启用 webhook
+      const updateResponse = await client.updateApplication(appId, {
+        webhookEnabled: true,
+      });
+
+      expect(updateResponse.status).toBe(200);
+      expect(updateResponse.body.data.webhookEnabled).toBe(true);
+      expect(updateResponse.body.data.webhookToken).toBeTruthy(); // 应该自动生成 token
+    });
+
+    it('应该能够重新生成应用的 webhook token', async () => {
+      const testPort = generateTestPort();
+      const appData = {
+        name: 'regenerate-token-app',
+        image: 'nginx',
+        ports: [{ host: testPort, container: 80 }],
+        webhookEnabled: true,
+      };
+
+      const createResponse = await client.createApplication(appData);
+      const appId = createResponse.body.data.id;
+      const originalToken = createResponse.body.data.webhookToken;
+
+      // 重新生成 token（通过更新 webhookToken 字段）
+      const newToken = `whk_${Math.random().toString(36).substring(2, 15)}`;
+      const updateResponse = await client.updateApplication(appId, {
+        webhookToken: newToken,
+      });
+
+      expect(updateResponse.status).toBe(200);
+      expect(updateResponse.body.data.webhookToken).toBe(newToken);
+      expect(updateResponse.body.data.webhookToken).not.toBe(originalToken);
+    });
+  });
+
+  describe('Webhook Deployment V2', () => {
+    it('应该通过 webhook 成功部署预注册的应用', async () => {
+      const containerName = generateTestContainerName();
+      const testPort = generateTestPort();
+      
+      // 1. 预注册应用
+      const appData = {
+        name: containerName,
+        image: 'nginx',
+        ports: [{ host: testPort, container: 80 }],
+        webhookEnabled: true,
+      };
+
+      const createResponse = await client.createApplication(appData);
+      const appId = createResponse.body.data.id;
+      const webhookToken = createResponse.body.data.webhookToken;
+
+      expect(webhookToken).toBeTruthy();
+
+      // 2. 通过 webhook 部署应用
+      const deployResponse = await client.webhookDeployV2({
+        applicationId: appId,
+        version: 'alpine',
+        token: webhookToken,
+      });
+
+      expect(deployResponse.status).toBe(200);
+      expect(deployResponse.body.success).toBe(true);
+      expect(deployResponse.body.deploymentId).toBeDefined();
+
+      // 等待容器启动
+      await wait(2000);
+
+      // 验证容器是否在运行
+      const running = await isContainerRunning(containerName);
+      expect(running).toBe(true);
+
+      // 清理
+      await removeContainer(containerName);
+    }, 60000);
+
+    it('应该拒绝未注册应用的 webhook 部署', async () => {
+      const response = await client.webhookDeployV2({
+        applicationId: 99999, // 不存在的应用ID
+        version: 'alpine',
+        token: 'fake-token',
+      });
+
+      expect(response.status).toBe(400); // Bad Request
+      expect(response.body.success).toBe(false);
+    });
+
+    it('应该拒绝使用无效 token 的 webhook 部署', async () => {
+      const testPort = generateTestPort();
+      
+      // 创建应用
+      const appData = {
+        name: 'invalid-token-app',
+        image: 'nginx',
+        ports: [{ host: testPort, container: 80 }],
+        webhookEnabled: true,
+      };
+
+      const createResponse = await client.createApplication(appData);
+      const appId = createResponse.body.data.id;
+
+      // 使用错误的 token 尝试部署
+      const deployResponse = await client.webhookDeployV2({
+        applicationId: appId,
+        version: 'alpine',
+        token: 'invalid-token-12345',
+      });
+
+      expect(deployResponse.status).toBe(401); // Unauthorized
+      expect(deployResponse.body.success).toBe(false);
+    });
+
+    it('应该拒绝 webhook 未启用的应用部署', async () => {
+      const testPort = generateTestPort();
+      
+      // 创建应用，不启用 webhook
+      const appData = {
+        name: 'webhook-disabled-app',
+        image: 'nginx',
+        ports: [{ host: testPort, container: 80 }],
+        webhookEnabled: false,
+      };
+
+      const createResponse = await client.createApplication(appData);
+      const appId = createResponse.body.data.id;
+
+      // 尝试通过 webhook 部署
+      const deployResponse = await client.webhookDeployV2({
+        applicationId: appId,
+        version: 'alpine',
+        token: 'any-token',
+      });
+
+      expect(deployResponse.status).toBe(401); // Unauthorized
+      expect(deployResponse.body.success).toBe(false);
+    });
+
+    it('应该支持通过 webhook 更新应用版本', async () => {
+      const containerName = generateTestContainerName();
+      const testPort = generateTestPort();
+      
+      // 预注册应用
+      const appData = {
+        name: containerName,
+        image: 'nginx',
+        ports: [{ host: testPort, container: 80 }],
+        webhookEnabled: true,
+      };
+
+      const createResponse = await client.createApplication(appData);
+      const appId = createResponse.body.data.id;
+      const webhookToken = createResponse.body.data.webhookToken;
+
+      // 第一次部署 (alpine 版本)
+      const deploy1 = await client.webhookDeployV2({
+        applicationId: appId,
+        version: 'alpine',
+        token: webhookToken,
+      });
+
+      expect(deploy1.status).toBe(200);
+      await wait(2000);
+
+      // 第二次部署 (更新到 1.25-alpine 版本)
+      const deploy2 = await client.webhookDeployV2({
+        applicationId: appId,
+        version: '1.25-alpine',
+        token: webhookToken,
+      });
+
+      expect(deploy2.status).toBe(200);
+      expect(deploy2.body.success).toBe(true);
+
+      await wait(2000);
+
+      // 验证容器仍在运行
+      const running = await isContainerRunning(containerName);
+      expect(running).toBe(true);
+
+      // 清理
+      await removeContainer(containerName);
+    }, 90000);
+  });
+
+  describe('Deployment Logging (V2 新功能)', () => {
+    it('应该记录 webhook 部署日志', async () => {
+      const containerName = generateTestContainerName();
+      const testPort = generateTestPort();
+      
+      // 预注册应用
+      const appData = {
+        name: containerName,
+        image: 'nginx',
+        ports: [{ host: testPort, container: 80 }],
+        webhookEnabled: true,
+      };
+
+      const createResponse = await client.createApplication(appData);
+      const appId = createResponse.body.data.id;
+      const webhookToken = createResponse.body.data.webhookToken;
+
+      // 部署应用
+      const deployResponse = await client.webhookDeployV2({
+        applicationId: appId,
+        version: 'alpine',
+        token: webhookToken,
+      });
+
+      expect(deployResponse.status).toBe(200);
+      const deploymentId = deployResponse.body.deploymentId;
+
+      await wait(2000);
+
+      // 查询部署日志
+      const logsResponse = await client.get(`/api/deployment-logs?applicationId=${appId}`);
+      
+      expect(logsResponse.status).toBe(200);
+      expect(logsResponse.body.success).toBe(true);
+      expect(Array.isArray(logsResponse.body.data)).toBe(true);
+      
+      // 应该能找到刚才的部署记录
+      const deployLog = logsResponse.body.data.find((log: any) => log.deploymentId === deploymentId);
+      expect(deployLog).toBeDefined();
+      expect(deployLog.triggerType).toBe('webhook');
+      expect(deployLog.status).toBe('success');
+
+      // 清理
+      await removeContainer(containerName);
+    }, 60000);
+  });
 });
 

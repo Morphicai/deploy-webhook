@@ -2,9 +2,6 @@ export interface DeployRequest {
   name?: string;  // 应用名称（可选，不填则自动从 image 生成）
   image?: string;  // 镜像名称，例如 nginx, library/nginx, focusbe/morphixai
   version?: string;  // 镜像版本标签
-  repo?: string;  // 已废弃，保留向后兼容性，使用 image 替代
-  // registry moved to env; keep optional for backward compat but unused
-  registry?: string;
   port?: string | number;
   containerPort?: string | number;
   secret?: string;

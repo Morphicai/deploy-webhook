@@ -1,10 +1,11 @@
 import { Router, type Router as ExpressRouter } from 'express';
 import { buildErrorResponse } from '../utils/errors';
 import {
-  createSecretRecord,
-  listSecretSummaries,
-  removeSecretRecord,
-  updateSecretRecord,
+  createSecret,
+  listSecrets,
+  deleteSecret,
+  updateSecret,
+  listSecretsByGroup,
 } from '../services/secretStore';
 import { requireAdmin } from '../middleware/adminAuth';
 
@@ -20,8 +21,14 @@ router.use(requireAdmin);
  *       - Secrets
  *     security:
  *       - AdminToken: []
- *     summary: List known secret configurations
- *     description: Returns summaries for all stored secret references.
+ *     summary: List all secrets (V2)
+ *     description: Returns summaries for all stored secrets with encrypted values
+ *     parameters:
+ *       - in: query
+ *         name: groupId
+ *         schema:
+ *           type: integer
+ *         description: Filter by secret group ID
  *     responses:
  *       '200':
  *         description: Secret list
@@ -35,10 +42,17 @@ router.use(requireAdmin);
  *                 data:
  *                   type: array
  *                   items:
- *                     $ref: '#/components/schemas/SecretRecord'
+ *                     $ref: '#/components/schemas/SecretSummary'
  */
-router.get('/', (_req, res) => {
-  res.json({ success: true, data: listSecretSummaries() });
+router.get('/', (req, res) => {
+  try {
+    const groupId = req.query.groupId ? Number(req.query.groupId) : undefined;
+    const secrets = groupId ? listSecretsByGroup(groupId) : listSecrets();
+    res.json({ success: true, data: secrets });
+  } catch (error) {
+    const fail = buildErrorResponse(error);
+    res.status(fail.code ?? 500).json(fail);
+  }
 });
 
 /**
@@ -49,13 +63,31 @@ router.get('/', (_req, res) => {
  *       - Secrets
  *     security:
  *       - AdminToken: []
- *     summary: Create a new secret record
+ *     summary: Create a new secret (V2 - with encryption)
+ *     description: Creates a new secret with the actual value encrypted and stored locally
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/SecretCreateRequest'
+ *             type: object
+ *             required:
+ *               - name
+ *               - groupId
+ *               - value
+ *             properties:
+ *               name:
+ *                 type: string
+ *               groupId:
+ *                 type: integer
+ *               value:
+ *                 type: string
+ *                 description: The actual secret value (will be encrypted)
+ *               description:
+ *                 type: string
+ *               source:
+ *                 type: string
+ *                 enum: [manual, synced]
  *     responses:
  *       '201':
  *         description: Secret created
@@ -64,14 +96,14 @@ router.get('/', (_req, res) => {
  */
 router.post('/', (req, res) => {
   try {
-    const created = createSecretRecord(req.body);
-    res.status(201).json({ success: true, data: created });
+    const created = createSecret(req.body);
+    res.status(201).json({ success: true, data: created, message: 'Secret created successfully' });
   } catch (error) {
     console.error('[deploy-webhook] Failed to create secret:', {
       timestamp: new Date().toISOString(),
       error: error instanceof Error ? error.message : String(error),
       secretName: req.body?.name,
-      provider: req.body?.provider,
+      groupId: req.body?.groupId,
     });
     const fail = buildErrorResponse(error);
     res.status(fail.code ?? 400).json(fail);
@@ -86,7 +118,7 @@ router.post('/', (req, res) => {
  *       - Secrets
  *     security:
  *       - AdminToken: []
- *     summary: Update an existing secret
+ *     summary: Update an existing secret (V2)
  *     parameters:
  *       - in: path
  *         name: id
@@ -98,7 +130,17 @@ router.post('/', (req, res) => {
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/SecretUpdateRequest'
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               value:
+ *                 type: string
+ *                 description: New secret value (will be re-encrypted)
+ *               groupId:
+ *                 type: integer
+ *               description:
+ *                 type: string
  *     responses:
  *       '200':
  *         description: Secret updated
@@ -111,14 +153,13 @@ router.put('/:id', (req, res) => {
     if (!Number.isFinite(id)) {
       return res.status(400).json({ success: false, error: 'Invalid id' });
     }
-    const updated = updateSecretRecord(id, req.body);
-    res.json({ success: true, data: updated });
+    const updated = updateSecret(id, req.body);
+    res.json({ success: true, data: updated, message: 'Secret updated successfully' });
   } catch (error) {
     console.error('[deploy-webhook] Failed to update secret:', {
       timestamp: new Date().toISOString(),
       error: error instanceof Error ? error.message : String(error),
       secretId: req.params.id,
-      provider: req.body?.provider,
     });
     const fail = buildErrorResponse(error);
     res.status(fail.code ?? 400).json(fail);
@@ -133,7 +174,7 @@ router.put('/:id', (req, res) => {
  *       - Secrets
  *     security:
  *       - AdminToken: []
- *     summary: Remove a secret
+ *     summary: Delete a secret (V2)
  *     parameters:
  *       - in: path
  *         name: id
@@ -142,7 +183,9 @@ router.put('/:id', (req, res) => {
  *           type: integer
  *     responses:
  *       '200':
- *         description: Secret removed
+ *         description: Secret deleted
+ *       '404':
+ *         description: Secret not found
  */
 router.delete('/:id', (req, res) => {
   try {
@@ -150,8 +193,8 @@ router.delete('/:id', (req, res) => {
     if (!Number.isFinite(id)) {
       return res.status(400).json({ success: false, error: 'Invalid id' });
     }
-    removeSecretRecord(id);
-    res.json({ success: true });
+    deleteSecret(id);
+    res.json({ success: true, message: 'Secret deleted successfully' });
   } catch (error) {
     console.error('[deploy-webhook] Failed to delete secret:', {
       timestamp: new Date().toISOString(),
