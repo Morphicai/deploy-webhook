@@ -46,7 +46,7 @@ export const Login: React.FC = () => {
           <CardDescription>Deploy Webhook Management Console</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4" data-testid="login-form">
             <div className="space-y-2">
               <Label htmlFor="email">{t('auth.email')}</Label>
               <Input
@@ -57,6 +57,7 @@ export const Login: React.FC = () => {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 disabled={loading}
+                data-testid="login-email-input"
               />
             </div>
 
@@ -70,16 +71,25 @@ export const Login: React.FC = () => {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 disabled={loading}
+                data-testid="login-password-input"
               />
             </div>
 
             {error && (
-              <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">
+              <div 
+                className="text-sm text-destructive bg-destructive/10 p-3 rounded-md"
+                data-testid="login-error-message"
+              >
                 {error}
               </div>
             )}
 
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button 
+              type="submit" 
+              className="w-full" 
+              disabled={loading}
+              data-testid="login-submit-button"
+            >
               {loading ? t('common.loading') : t('auth.loginButton')}
             </Button>
 

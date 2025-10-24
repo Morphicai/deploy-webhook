@@ -1,40 +1,85 @@
 import { Page, expect } from '@playwright/test';
 
 /**
+ * 等待页面DOM稳定（React渲染完成）
+ */
+export async function waitForPageReady(page: Page, testId: string, timeout: number = 15000) {
+  await page.waitForSelector(`[data-testid="${testId}"]`, { 
+    state: 'visible',
+    timeout 
+  });
+  // 额外等待一小段时间确保所有异步操作完成
+  await page.waitForTimeout(500);
+}
+
+/**
  * 用户注册辅助函数
+ * 
+ * 注意：当前 UI 只有 email 字段，没有 username 字段
+ * username 参数暂时保留以保持接口兼容性
  */
 export async function register(
   page: Page, 
-  username: string = 'testuser',
+  username: string = 'testuser',  // 保留参数但不使用
   email: string = 'test@example.com',
   password: string = 'Test123456!'
 ) {
   await page.goto('/register');
-  await page.fill('[name="username"]', username);
-  await page.fill('[name="email"]', email);
-  await page.fill('[name="password"]', password);
-  await page.fill('[name="confirmPassword"]', password);
-  await page.click('button[type="submit"]');
   
-  // 等待注册完成（可能跳转到登录页或显示成功消息）
+  // 等待 React 渲染完成 - 等待表单出现
+  await page.waitForSelector('[data-testid="register-form"]', { 
+    state: 'visible',
+    timeout: 15000 
+  });
+  
+  // 等待输入框可交互
+  await page.waitForSelector('[data-testid="register-email-input"]', { 
+    state: 'visible',
+    timeout: 10000 
+  });
+  
+  // 使用 data-testid 选择器（更稳定）
+  await page.fill('[data-testid="register-email-input"]', email);
+  await page.fill('[data-testid="register-password-input"]', password);
+  await page.fill('[data-testid="register-confirm-password-input"]', password);
+  await page.click('[data-testid="register-submit-button"]');
+  
+  // 等待注册完成（可能跳转到首页或登录页）
   await page.waitForTimeout(2000);
 }
 
 /**
  * 用户登录辅助函数
+ * 
+ * 注意：当前 UI 使用 email 登录，不是 username
+ * username 参数被当作 email 使用
  */
 export async function login(
   page: Page,
-  username = 'testuser',
+  username = 'test@example.com',  // 实际上是 email
   password = 'Test123456!'
 ) {
   await page.goto('/login');
-  await page.fill('[name="username"]', username);
-  await page.fill('[name="password"]', password);
-  await page.click('button[type="submit"]');
+  
+  // 等待 React 渲染完成 - 等待表单出现
+  await page.waitForSelector('[data-testid="login-form"]', { 
+    state: 'visible',
+    timeout: 15000 
+  });
+  
+  // 等待输入框可交互
+  await page.waitForSelector('[data-testid="login-email-input"]', { 
+    state: 'visible',
+    timeout: 10000 
+  });
+  
+  // 使用 data-testid 选择器（更稳定）
+  await page.fill('[data-testid="login-email-input"]', username);
+  await page.fill('[data-testid="login-password-input"]', password);
+  await page.click('[data-testid="login-submit-button"]');
   
   // 等待跳转到首页
-  await page.waitForURL('/');
+  await page.waitForURL('/', { timeout: 10000 });
   
   // 验证登录成功
   const token = await page.evaluate(() => localStorage.getItem('auth_token'));
@@ -95,11 +140,19 @@ export async function waitForLoading(page: Page) {
  * 清理测试数据（仅用于测试环境）
  */
 export async function cleanupTestData(page: Page) {
-  // 清除 localStorage
-  await page.evaluate(() => {
-    localStorage.clear();
-    sessionStorage.clear();
-  });
+  try {
+    // 先导航到应用页面（避免 about:blank 的 localStorage 访问错误）
+    await page.goto('/');
+    
+    // 清除 localStorage
+    await page.evaluate(() => {
+      localStorage.clear();
+      sessionStorage.clear();
+    });
+  } catch (error) {
+    // 如果清理失败，忽略错误（可能是第一次运行）
+    console.log('[cleanupTestData] Warning:', error);
+  }
 }
 
 /**

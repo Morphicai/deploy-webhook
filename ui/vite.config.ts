@@ -11,20 +11,8 @@ export default defineConfig({
     },
   },
   server: {
-    port: 3001,
-    proxy: {
-      '/api': {
-        target: 'http://localhost:9000',
-        changeOrigin: true,
-      },
-      '/deploy': {
-        target: 'http://localhost:9000',
-        changeOrigin: true,
-      },
-      '/health': {
-        target: 'http://localhost:9000',
-        changeOrigin: true,
-      }
-    }
+    port: 5173,  // 使用标准 Vite 端口
+    // 注意：测试模式下不使用 proxy，直接通过 VITE_API_BASE_URL 调用后端
+    // proxy 仅在开发模式需要时使用
   }
 })

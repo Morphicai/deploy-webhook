@@ -68,7 +68,7 @@ export const Register: React.FC = () => {
           <CardDescription>Create your first admin account</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4" data-testid="register-form">
             <div className="space-y-2">
               <Label htmlFor="email">{t('auth.email')}</Label>
               <Input
@@ -79,6 +79,7 @@ export const Register: React.FC = () => {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 disabled={loading}
+                data-testid="register-email-input"
               />
             </div>
 
@@ -92,6 +93,7 @@ export const Register: React.FC = () => {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 disabled={loading}
+                data-testid="register-password-input"
               />
             </div>
 
@@ -105,16 +107,25 @@ export const Register: React.FC = () => {
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
                 disabled={loading}
+                data-testid="register-confirm-password-input"
               />
             </div>
 
             {error && (
-              <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">
+              <div 
+                className="text-sm text-destructive bg-destructive/10 p-3 rounded-md"
+                data-testid="register-error-message"
+              >
                 {error}
               </div>
             )}
 
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button 
+              type="submit" 
+              className="w-full" 
+              disabled={loading}
+              data-testid="register-submit-button"
+            >
               {loading ? t('common.loading') : t('auth.registerButton')}
             </Button>
 

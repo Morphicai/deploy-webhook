@@ -2,6 +2,11 @@ import { FullConfig } from '@playwright/test';
 import { execSync } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
+import { fileURLToPath } from 'url';
+
+// ES modules 中获取 __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 /**
  * Playwright 全局 Teardown

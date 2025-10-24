@@ -49,25 +49,38 @@ export default defineConfig({
   // 如果自动启动失败，请手动启动前后端服务
   webServer: [
     {
-      // 前端开发服务器，设置环境变量指向测试后端
-      command: 'VITE_API_BASE_URL=http://localhost:9001 npm run dev',
-      port: 5173,
-      reuseExistingServer: true, // 总是复用现有服务
-      timeout: 120000,
+      // 后端测试服务器（使用 ts-node，不带 nodemon）
+      name: 'Backend',                              // 服务名称，便于日志识别
+      command: 'npm run test:serve',
+      url: 'http://localhost:9001/health',          // 使用健康检查端点，确保服务完全就绪
+      cwd: '../backend',                            // 工作目录
+      timeout: 120000,                              // 2分钟超时
+      reuseExistingServer: !process.env.CI,         // CI 环境不复用，本地开发复用
+      stdout: 'pipe',                               // 捕获日志用于调试
+      stderr: 'pipe',
       env: {
-        VITE_API_BASE_URL: 'http://localhost:9001', // 指向测试后端
+        // 后端环境变量
+        // 注意：不能设置 NODE_ENV=test，否则服务器不会启动（代码中if (env.NODE_ENV !== 'test')判断）
+        // NODE_ENV: 'test',         // ❌ 会导致服务器不启动
+        PORT: '9001',               // 测试端口（与开发端口 9000 隔离）
+        DB_PATH: './data/test',     // 测试数据库路径（与开发数据库隔离）
+        TEST_MODE: 'e2e',           // E2E 测试模式标识
+        LOG_LEVEL: 'error',         // 减少日志输出
       },
     },
     {
-      // 后端以测试模式启动，使用独立的测试数据库
-      command: 'cd ../backend && NODE_ENV=test PORT=9001 DB_PATH=./data/test npm run dev',
-      port: 9001, // 测试端口，与开发端口隔离
-      reuseExistingServer: true, // 总是复用现有服务
-      timeout: 120000,
+      // 前端测试服务器
+      name: 'Frontend',                             // 服务名称，便于日志识别
+      command: 'npm run test:serve',
+      url: 'http://localhost:5173',                 // 使用 URL 而不是 port
+      timeout: 60000,                               // 1分钟超时（Vite 启动快）
+      reuseExistingServer: !process.env.CI,         // CI 环境不复用，本地开发复用
+      stdout: 'pipe',                               // 捕获日志用于调试
+      stderr: 'pipe',
       env: {
-        NODE_ENV: 'test',
-        PORT: '9001',
-        DB_PATH: './data/test',
+        // 前端环境变量
+        VITE_API_BASE_URL: 'http://localhost:9001', // 指向测试后端
+        TEST_MODE: 'e2e',                           // E2E 测试模式标识
       },
     }
   ],
