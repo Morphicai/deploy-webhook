@@ -36,18 +36,28 @@ export function createTestApplication(overrides?: Partial<{
   name: string;
   image: string;
   version: string;
-  port: number;
-  containerPort: number;
+  ports: Array<{ host: number; container: number }>;
+  port: number;  // 向后兼容
+  containerPort: number;  // 向后兼容
   env: Record<string, any>;
+  envVars: Record<string, string>;
   repositoryId: number;
 }>) {
+  // 支持新旧两种 port 格式
+  const ports = overrides?.ports || [
+    {
+      host: overrides?.port || 9080,
+      container: overrides?.containerPort || 80
+    }
+  ];
+  
   return {
     name: 'test-app',
     image: 'nginx',
     version: 'alpine',
-    port: 9080,
-    containerPort: 80,
-    env: {},
+    ports,
+    envVars: overrides?.env || {},
+    repositoryId: overrides?.repositoryId || 1,
     ...overrides,
   };
 }
@@ -138,8 +148,7 @@ export function createTestSecretSync(overrides?: Partial<{
  */
 export function createTestEnvVar(overrides?: Partial<{
   scope: 'global' | 'project';
-  projectId: number; // V2: 使用 projectId 代替 projectName
-  projectName: string; // 保留用于兼容性
+  projectId: number; // V2: 使用 projectId（project scope 时必需）
   key: string;
   value: string;
   valueType: 'plain' | 'secret_ref'; // V2: 值类型
@@ -147,7 +156,6 @@ export function createTestEnvVar(overrides?: Partial<{
 }>) {
   return {
     scope: 'global' as const,
-    projectName: '', // 向后兼容
     key: 'TEST_VAR',
     value: 'test-value',
     valueType: 'plain' as const, // V2: 默认为纯文本

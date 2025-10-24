@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { getDb } from './database';
 import { encryptSecret, decryptSecret, getSecretPreview } from '../utils/encryption';
 import { getSecretGroupById } from './secretGroupStore';
+import { ConflictError, NotFoundError } from '../utils/errors';
 
 /**
  * 秘钥来源
@@ -219,7 +220,7 @@ export function createSecret(input: SecretInput): SecretRecord {
   // 检查分组内名称是否已存在
   const existing = getSecretByGroupAndName(parsed.groupId, parsed.name);
   if (existing) {
-    throw new Error(`Secret with name "${parsed.name}" already exists in group "${group.name}"`);
+    throw new ConflictError(`Secret with name "${parsed.name}" already exists in group "${group.name}"`);
   }
   
   // 如果指定了 providerId，验证提供者是否存在

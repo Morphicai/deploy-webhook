@@ -2,7 +2,7 @@ import { Express } from 'express';
 import { createApp } from '../setup/testAppFactory';
 import { initializeTestDatabase, cleanTestDatabase } from '../setup/testDatabase';
 import { ApiClient } from '../helpers/apiClient';
-import { TEST_AUTH, createTestSecret, createTestSecretGroup, createTestEnvVar } from '../helpers/fixtures';
+import { TEST_AUTH, createTestApplication, createTestSecret, createTestSecretGroup, createTestEnvVar } from '../helpers/fixtures';
 
 /**
  * 秘钥和环境变量测试
@@ -20,6 +20,7 @@ describe('Secrets & Environment Variables', () => {
   // 清理测试数据
   afterEach(async () => {
     const { getDb } = require('../../dist/services/database');
+    const { initializeDefaultRepository } = require('../../dist/services/repositoryStore');
     const db = getDb();
     
     // 强制 WAL checkpoint
@@ -37,6 +38,10 @@ describe('Secrets & Environment Variables', () => {
       db.prepare(`DELETE FROM ${(table as any).name}`).run();
     }
     db.exec('PRAGMA foreign_keys = ON');
+    
+    // 重新初始化默认 Docker Hub repository
+    initializeDefaultRepository();
+    
     db.exec('PRAGMA wal_checkpoint(TRUNCATE)');
   });
 
@@ -148,7 +153,8 @@ describe('Secrets & Environment Variables', () => {
         createTestSecret({ groupId, name: 'duplicate-secret' })
       );
 
-      expect(response.status).toBe(400);
+      // 409 Conflict - 资源冲突（重复的唯一键）
+      expect(response.status).toBe(409);
       expect(response.body.success).toBe(false);
     });
   });
@@ -277,9 +283,21 @@ describe('Secrets & Environment Variables', () => {
     });
 
     it('应该成功创建项目环境变量', async () => {
+      // 先创建应用（使用唯一名称）
+      const timestamp = Date.now();
+      const appName = `test-app-${timestamp}`;
+      const appResponse = await client.createApplication(createTestApplication({ 
+        name: appName,
+        port: 9080 + Math.floor(Math.random() * 1000)
+      }));
+      const projectId = appResponse.body.data?.id;
+      
+      expect(appResponse.status).toBe(201);
+      expect(projectId).toBeDefined();
+      
       const envData = createTestEnvVar({
         scope: 'project',
-        projectName: 'test-app',
+        projectId,
         key: 'PROJECT_VAR',
         value: 'project-value',
       });
@@ -289,7 +307,8 @@ describe('Secrets & Environment Variables', () => {
       expect(response.status).toBe(201);
       expect(response.body.success).toBe(true);
       expect(response.body.data.scope).toBe('project');
-      expect(response.body.data.projectName).toBe('test-app');
+      expect(response.body.data.projectId).toBe(projectId);
+      expect(response.body.data.projectName).toBe(appName);
     });
 
     it('应该能够获取环境变量列表', async () => {
@@ -305,6 +324,17 @@ describe('Secrets & Environment Variables', () => {
     });
 
     it('应该能够按 scope 过滤环境变量', async () => {
+      // 先创建应用（使用唯一名称）
+      const timestamp = Date.now();
+      const appResponse = await client.createApplication(createTestApplication({ 
+        name: `scope-test-app-${timestamp}`,
+        port: 9080 + Math.floor(Math.random() * 1000)
+      }));
+      const projectId = appResponse.body.data?.id;
+      
+      expect(appResponse.status).toBe(201);
+      expect(projectId).toBeDefined();
+      
       // 创建全局和项目变量
       await client.createEnvVar(createTestEnvVar({ 
         scope: 'global', 
@@ -312,7 +342,7 @@ describe('Secrets & Environment Variables', () => {
       }));
       await client.createEnvVar(createTestEnvVar({ 
         scope: 'project', 
-        projectName: 'test-app',
+        projectId,
         key: 'PROJECT_VAR' 
       }));
 
@@ -322,22 +352,41 @@ describe('Secrets & Environment Variables', () => {
       expect(response.body.data.every((v: any) => v.scope === 'global')).toBe(true);
     });
 
-    it('应该能够按项目名称过滤环境变量', async () => {
+    it('应该能够按项目 ID 过滤环境变量', async () => {
+      // 先创建应用（使用唯一名称和端口）
+      const timestamp = Date.now();
+      const app1Response = await client.createApplication(createTestApplication({ 
+        name: `filter-app-1-${timestamp}`,
+        port: 9080 + Math.floor(Math.random() * 1000)
+      }));
+      const app1Id = app1Response.body.data?.id;
+      
+      const app2Response = await client.createApplication(createTestApplication({ 
+        name: `filter-app-2-${timestamp}`,
+        port: 9081 + Math.floor(Math.random() * 1000)
+      }));
+      const app2Id = app2Response.body.data?.id;
+      
+      expect(app1Response.status).toBe(201);
+      expect(app1Id).toBeDefined();
+      expect(app2Response.status).toBe(201);
+      expect(app2Id).toBeDefined();
+      
       await client.createEnvVar(createTestEnvVar({ 
         scope: 'project', 
-        projectName: 'app-1',
+        projectId: app1Id,
         key: 'VAR_1' 
       }));
       await client.createEnvVar(createTestEnvVar({ 
         scope: 'project', 
-        projectName: 'app-2',
+        projectId: app2Id,
         key: 'VAR_2' 
       }));
 
-      const response = await client.listEnvVars('project', 'app-1');
+      const response = await client.listEnvVars('project', app1Id);
 
       expect(response.status).toBe(200);
-      expect(response.body.data.every((v: any) => v.projectName === 'app-1')).toBe(true);
+      expect(response.body.data.every((v: any) => v.projectId === app1Id)).toBe(true);
     });
 
     it('应该能够更新环境变量', async () => {
@@ -428,8 +477,8 @@ describe('Secrets & Environment Variables', () => {
       expect(response.body.success).toBe(true);
       expect(response.body.data.valueType).toBe('secret_ref');
       expect(response.body.data.secretId).toBe(secretId);
-      // V2: 引用秘钥的环境变量，value 字段应该为 null
-      expect(response.body.data.value).toBeNull();
+      // V2: 引用秘钥的环境变量，value 字段是 @secret:id 格式
+      expect(response.body.data.value).toBe(`@secret:${secretId}`);
     });
 
     it('应该能够查询引用秘钥的环境变量', async () => {
@@ -480,6 +529,16 @@ describe('Secrets & Environment Variables', () => {
 
   describe('Environment Variable Priority', () => {
     it('应该正确处理环境变量优先级（项目覆盖全局）', async () => {
+      // 先创建应用（使用唯一名称避免冲突）
+      const timestamp = Date.now();
+      const appResponse = await client.createApplication(createTestApplication({ 
+        name: `priority-test-app-${timestamp}`
+      }));
+      const projectId = appResponse.body.data?.id;
+      
+      expect(appResponse.status).toBe(201);
+      expect(projectId).toBeDefined();
+      
       // 创建全局变量
       await client.createEnvVar(createTestEnvVar({
         scope: 'global',
@@ -490,15 +549,16 @@ describe('Secrets & Environment Variables', () => {
       // 创建同名的项目变量
       await client.createEnvVar(createTestEnvVar({
         scope: 'project',
-        projectName: 'test-app',
+        projectId,
         key: 'PRIORITY_VAR',
         value: 'project-value',
       }));
 
       // 获取项目的环境变量（应该是项目值）
-      const response = await client.listEnvVars('project', 'test-app');
+      const response = await client.listEnvVars('project', projectId);
       const projectVar = response.body.data.find((v: any) => v.key === 'PRIORITY_VAR');
       
+      expect(projectVar).toBeDefined();
       expect(projectVar.value).toBe('project-value');
     });
   });

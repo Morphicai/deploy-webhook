@@ -249,10 +249,10 @@ export class ApiClient {
   /**
    * 获取环境变量列表
    */
-  async listEnvVars(scope?: string, projectName?: string): Promise<Response> {
+  async listEnvVars(scope?: string, projectId?: number): Promise<Response> {
     const query: Record<string, any> = {};
     if (scope) query.scope = scope;
-    if (projectName) query.projectName = projectName;
+    if (projectId) query.projectId = projectId;
     return this.get('/api/env', query);
   }
 

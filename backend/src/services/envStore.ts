@@ -61,8 +61,9 @@ function mapRow(row: any): EnvEntry {
 
 /**
  * 创建或更新环境变量
+ * @returns {entry: EnvEntry, created: boolean} entry 和是否新创建的标志
  */
-export function upsertEnvEntry(input: EnvEntryInput): EnvEntry {
+export function upsertEnvEntry(input: EnvEntryInput): { entry: EnvEntry; created: boolean } {
   const parsed = envEntrySchema.parse(input);
   
   // 验证：如果是 project 作用域，必须提供 projectId
@@ -98,7 +99,7 @@ export function upsertEnvEntry(input: EnvEntryInput): EnvEntry {
   
   const normalized = {
     scope: parsed.scope,
-    projectId: parsed.scope === 'global' ? null : parsed.projectId,
+    projectId: parsed.scope === 'global' ? null : (parsed.projectId || null),
     key: parsed.key,
     value: parsed.value,
     valueType: parsed.valueType || 'plain',
@@ -107,17 +108,85 @@ export function upsertEnvEntry(input: EnvEntryInput): EnvEntry {
   };
   
   const db = getDb();
-  db.prepare(
-    `INSERT INTO environment_variables(scope, project_id, key, value, value_type, secret_id, description)
-     VALUES (@scope, @projectId, @key, @value, @valueType, @secretId, @description)
-     ON CONFLICT(scope, project_id, key)
-     DO UPDATE SET 
-       value = excluded.value, 
-       value_type = excluded.value_type,
-       secret_id = excluded.secret_id,
-       description = excluded.description`
-  ).run(normalized);
+  
+  // 检查是否已存在
+  let existing: any;
+  if (normalized.projectId === null) {
+    existing = db.prepare(
+      `SELECT id FROM environment_variables WHERE scope = ? AND project_id IS NULL AND key = ?`
+    ).get(normalized.scope, normalized.key);
+  } else {
+    existing = db.prepare(
+      `SELECT id FROM environment_variables WHERE scope = ? AND project_id = ? AND key = ?`
+    ).get(normalized.scope, normalized.projectId, normalized.key);
+  }
+  
+  const created = !existing;
+  
+  // 根据是否存在，执行 INSERT 或 UPDATE
+  if (existing) {
+    // 更新现有记录
+    db.prepare(
+      `UPDATE environment_variables 
+       SET value = ?, value_type = ?, secret_id = ?, description = ?
+       WHERE id = ?`
+    ).run(normalized.value, normalized.valueType, normalized.secretId, normalized.description, existing.id);
+  } else {
+    // 插入新记录
+    db.prepare(
+      `INSERT INTO environment_variables(scope, project_id, key, value, value_type, secret_id, description)
+       VALUES (@scope, @projectId, @key, @value, @valueType, @secretId, @description)`
+    ).run(normalized);
+  }
 
+  // 查询创建/更新后的记录
+  let row;
+  if (normalized.projectId === null) {
+    row = db.prepare(
+      `SELECT 
+         ev.id, 
+         ev.scope, 
+         ev.project_id as projectId, 
+         a.name as projectName,
+         ev.key, 
+         ev.value,
+         ev.value_type,
+         ev.secret_id,
+         ev.description,
+         ev.created_at as createdAt, 
+         ev.updated_at as updatedAt
+       FROM environment_variables ev
+       LEFT JOIN applications a ON ev.project_id = a.id
+       WHERE ev.scope = ? AND ev.project_id IS NULL AND ev.key = ?`
+    ).get(normalized.scope, normalized.key);
+  } else {
+    row = db.prepare(
+      `SELECT 
+         ev.id, 
+         ev.scope, 
+         ev.project_id as projectId, 
+         a.name as projectName,
+         ev.key, 
+         ev.value,
+         ev.value_type,
+         ev.secret_id,
+         ev.description,
+         ev.created_at as createdAt, 
+         ev.updated_at as updatedAt
+       FROM environment_variables ev
+       LEFT JOIN applications a ON ev.project_id = a.id
+       WHERE ev.scope = ? AND ev.project_id = ? AND ev.key = ?`
+    ).get(normalized.scope, normalized.projectId, normalized.key);
+  }
+
+  return { entry: mapRow(row), created };
+}
+
+/**
+ * 通过 ID 获取环境变量
+ */
+export function getEnvEntryById(id: number): EnvEntry | null {
+  const db = getDb();
   const row = db.prepare(
     `SELECT 
        ev.id, 
@@ -133,14 +202,94 @@ export function upsertEnvEntry(input: EnvEntryInput): EnvEntry {
        ev.updated_at as updatedAt
      FROM environment_variables ev
      LEFT JOIN applications a ON ev.project_id = a.id
-     WHERE ev.scope = ? AND ev.project_id IS ? AND ev.key = ?`
-  ).get(normalized.scope, normalized.projectId, normalized.key);
+     WHERE ev.id = ?`
+  ).get(id);
+  
+  return row ? mapRow(row) : null;
+}
 
-  return mapRow(row);
+/**
+ * 通过 ID 更新环境变量
+ */
+const updateEnvEntrySchema = z.object({
+  value: z.string().max(2048).optional(),
+  valueType: z.enum(['plain', 'secret_ref']).optional(),
+  secretId: z.number().int().positive().nullable().optional(),
+  description: z.string().max(512).optional(),
+});
+
+export function updateEnvEntryById(id: number, input: z.input<typeof updateEnvEntrySchema>): EnvEntry {
+  const parsed = updateEnvEntrySchema.parse(input);
+  const db = getDb();
+  
+  const current = getEnvEntryById(id);
+  if (!current) {
+    throw new Error(`Environment variable with id=${id} not found`);
+  }
+  
+  // 验证：如果 valueType 是 secret_ref，必须提供 secretId
+  if (parsed.valueType === 'secret_ref' || (parsed.secretId && !parsed.valueType)) {
+    const secretId = parsed.secretId ?? current.secretId;
+    if (!secretId) {
+      throw new Error('secretId is required when valueType is secret_ref');
+    }
+    
+    // 验证秘钥是否存在
+    const secret = getSecretById(secretId);
+    if (!secret) {
+      throw new Error(`Secret with id ${secretId} not found`);
+    }
+  }
+  
+  const updates: string[] = [];
+  const values: any[] = [];
+  
+  if (parsed.value !== undefined) {
+    updates.push('value = ?');
+    values.push(parsed.value);
+  }
+  
+  if (parsed.valueType !== undefined) {
+    updates.push('value_type = ?');
+    values.push(parsed.valueType);
+  }
+  
+  if (parsed.secretId !== undefined) {
+    updates.push('secret_id = ?');
+    values.push(parsed.secretId);
+  }
+  
+  if (parsed.description !== undefined) {
+    updates.push('description = ?');
+    values.push(parsed.description || null);
+  }
+  
+  if (updates.length === 0) return current;
+  
+  values.push(id);
+  db.prepare(`UPDATE environment_variables SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+  
+  const updated = getEnvEntryById(id);
+  if (!updated) throw new Error('Failed to update environment variable');
+  return updated;
+}
+
+/**
+ * 通过 ID 删除环境变量
+ */
+export function deleteEnvEntryById(id: number): void {
+  const db = getDb();
+  const entry = getEnvEntryById(id);
+  if (!entry) {
+    throw new Error(`Environment variable with id=${id} not found`);
+  }
+  db.prepare('DELETE FROM environment_variables WHERE id = ?').run(id);
 }
 
 /**
  * 列出环境变量
+ * @param scope - 作用域过滤 (global | project)
+ * @param projectId - 项目 ID 过滤（仅当 scope 为 project 时使用）
  */
 export function listEnvEntries(scope?: 'global' | 'project', projectId?: number): EnvEntry[] {
   const db = getDb();
@@ -184,24 +333,48 @@ export function listEnvEntries(scope?: 'global' | 'project', projectId?: number)
        ORDER BY ev.key`
     ).all();
   } else {
-    rows = db.prepare(
-      `SELECT 
-         ev.id, 
-         ev.scope, 
-         ev.project_id as projectId, 
-         a.name as projectName,
-         ev.key, 
-         ev.value,
-         ev.value_type,
-         ev.secret_id,
-         ev.description,
-         ev.created_at as createdAt, 
-         ev.updated_at as updatedAt
-       FROM environment_variables ev
-       LEFT JOIN applications a ON ev.project_id = a.id
-       WHERE ev.scope = 'project' AND ev.project_id = ? 
-       ORDER BY ev.key`
-    ).all(projectId || null);
+    // project scope
+    if (projectId === undefined) {
+      // 返回所有项目作用域的环境变量
+      rows = db.prepare(
+        `SELECT 
+           ev.id, 
+           ev.scope, 
+           ev.project_id as projectId, 
+           a.name as projectName,
+           ev.key, 
+           ev.value,
+           ev.value_type,
+           ev.secret_id,
+           ev.description,
+           ev.created_at as createdAt, 
+           ev.updated_at as updatedAt
+         FROM environment_variables ev
+         LEFT JOIN applications a ON ev.project_id = a.id
+         WHERE ev.scope = 'project'
+         ORDER BY ev.key`
+      ).all();
+    } else {
+      // 通过 projectId 过滤
+      rows = db.prepare(
+        `SELECT 
+           ev.id, 
+           ev.scope, 
+           ev.project_id as projectId, 
+           a.name as projectName,
+           ev.key, 
+           ev.value,
+           ev.value_type,
+           ev.secret_id,
+           ev.description,
+           ev.created_at as createdAt, 
+           ev.updated_at as updatedAt
+         FROM environment_variables ev
+         LEFT JOIN applications a ON ev.project_id = a.id
+         WHERE ev.scope = 'project' AND ev.project_id = ? 
+         ORDER BY ev.key`
+      ).all(projectId);
+    }
   }
   
   return rows.map(mapRow);
@@ -214,14 +387,6 @@ export function deleteEnvEntry(scope: 'global' | 'project', key: string, project
   const db = getDb();
   const normalizedProjectId = scope === 'project' ? projectId : null;
   db.prepare(`DELETE FROM environment_variables WHERE scope = ? AND project_id IS ? AND key = ?`).run(scope, normalizedProjectId, key);
-}
-
-/**
- * 根据 ID 删除环境变量
- */
-export function deleteEnvEntryById(id: number): void {
-  const db = getDb();
-  db.prepare('DELETE FROM environment_variables WHERE id = ?').run(id);
 }
 
 /**

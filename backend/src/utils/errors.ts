@@ -6,6 +6,47 @@ export interface NormalizedError {
   stack?: string;
 }
 
+/**
+ * Base error class with HTTP status code
+ */
+export class HttpError extends Error {
+  constructor(
+    message: string,
+    public readonly statusCode: number = 500
+  ) {
+    super(message);
+    this.name = this.constructor.name;
+    Error.captureStackTrace(this, this.constructor);
+  }
+}
+
+/**
+ * 400 Bad Request - validation errors, malformed requests
+ */
+export class ValidationError extends HttpError {
+  constructor(message: string) {
+    super(message, 400);
+  }
+}
+
+/**
+ * 404 Not Found
+ */
+export class NotFoundError extends HttpError {
+  constructor(message: string) {
+    super(message, 404);
+  }
+}
+
+/**
+ * 409 Conflict - duplicate resources, constraint violations
+ */
+export class ConflictError extends HttpError {
+  constructor(message: string) {
+    super(message, 409);
+  }
+}
+
 export function extractErrorCode(error: unknown): number {
   if (!error || typeof error !== 'object') {
     return 500;
