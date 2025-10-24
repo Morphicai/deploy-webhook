@@ -1,10 +1,14 @@
 import { Router, Request, Response } from 'express';
+import { requireAdmin } from '../middleware/adminAuth';
 import {
   listDeploymentLogs,
   getDeploymentLogById,
 } from '../services/deploymentLogStore';
 
 const router = Router();
+
+// 所有部署日志路由都需要管理员认证
+router.use(requireAdmin);
 
 /**
  * 获取部署日志列表

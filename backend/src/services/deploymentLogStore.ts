@@ -17,6 +17,7 @@ export interface DeploymentLogRecord {
   id: number;
   applicationId: number;
   applicationName?: string;        // 关联查询时填充
+  image?: string;                  // 关联查询时填充（镜像名称）
   version: string;
   deploymentId: string;
   triggerType: TriggerType;
@@ -57,6 +58,7 @@ function mapRow(row: any): DeploymentLogRecord {
     id: row.id,
     applicationId: row.application_id,
     applicationName: row.application_name,
+    image: row.application_image,  // 从关联查询获取
     version: row.version,
     deploymentId: row.deployment_id,
     triggerType: row.trigger_type as TriggerType,
@@ -143,7 +145,8 @@ export function getDeploymentLogById(id: number): DeploymentLogRecord | null {
   const row = db.prepare(`
     SELECT 
       dl.*,
-      a.name as application_name
+      a.name as application_name,
+      a.image as application_image
     FROM deployment_logs dl
     LEFT JOIN applications a ON dl.application_id = a.id
     WHERE dl.id = ?
@@ -159,7 +162,8 @@ export function getDeploymentLogByDeploymentId(deploymentId: string): Deployment
   const row = db.prepare(`
     SELECT 
       dl.*,
-      a.name as application_name
+      a.name as application_name,
+      a.image as application_image
     FROM deployment_logs dl
     LEFT JOIN applications a ON dl.application_id = a.id
     WHERE dl.deployment_id = ?
@@ -184,7 +188,8 @@ export function listDeploymentLogs(options: ListDeploymentLogsOptions = {}): Dep
   let query = `
     SELECT 
       dl.*,
-      a.name as application_name
+      a.name as application_name,
+      a.image as application_image
     FROM deployment_logs dl
     LEFT JOIN applications a ON dl.application_id = a.id
     WHERE 1=1
