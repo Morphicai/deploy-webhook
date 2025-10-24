@@ -37,6 +37,8 @@ const applicationSchema = z.object({
   envVars: z.record(z.string(), z.string()).optional(),
   status: z.enum(['running', 'stopped', 'error', 'deploying']).optional(),
   lastDeployedAt: z.string().nullish(),
+  webhookEnabled: z.boolean().optional(),  // V2: Webhook 部署开关
+  webhookToken: z.string().nullish(),      // V2: Webhook Token（创建时可选，自动生成）
 });
 
 type ApplicationInput = z.infer<typeof applicationSchema>;
@@ -117,9 +119,21 @@ export function createApplication(input: ApplicationInput): ApplicationRecord {
     throw new Error(`Application with name "${parsed.name}" already exists`);
   }
   
+  // V2: 如果启用 webhook 且未提供 token，自动生成
+  const webhookEnabled = parsed.webhookEnabled || false;
+  let webhookToken = parsed.webhookToken || null;
+  
+  if (webhookEnabled && !webhookToken) {
+    const crypto = require('crypto');
+    webhookToken = `whk_${crypto.randomBytes(32).toString('hex')}`;
+  }
+  
   const stmt = db.prepare(`
-    INSERT INTO applications (name, image, version, repository_id, ports, env_vars, status, last_deployed_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO applications (
+      name, image, version, repository_id, ports, env_vars, 
+      status, last_deployed_at, webhook_enabled, webhook_token
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   
   const info = stmt.run(
@@ -130,7 +144,9 @@ export function createApplication(input: ApplicationInput): ApplicationRecord {
     JSON.stringify(parsed.ports),
     JSON.stringify(parsed.envVars || {}),
     parsed.status || 'stopped',
-    parsed.lastDeployedAt || null
+    parsed.lastDeployedAt || null,
+    webhookEnabled ? 1 : 0,  // V2: webhook_enabled
+    webhookToken              // V2: webhook_token
   );
   
   const created = getApplicationById(Number(info.lastInsertRowid));
@@ -173,6 +189,31 @@ export function updateApplication(id: number, input: Partial<ApplicationInput>):
   if (input.envVars !== undefined) {
     updates.push('env_vars = ?');
     values.push(JSON.stringify(input.envVars));
+  }
+  
+  // V2: 处理 webhook 启用/禁用
+  if (input.webhookEnabled !== undefined) {
+    updates.push('webhook_enabled = ?');
+    values.push(input.webhookEnabled ? 1 : 0);
+    
+    // 如果启用 webhook 且当前没有 token，自动生成
+    if (input.webhookEnabled && !current.webhookToken) {
+      const crypto = require('crypto');
+      updates.push('webhook_token = ?');
+      values.push(`whk_${crypto.randomBytes(32).toString('hex')}`);
+    }
+    
+    // 如果禁用 webhook，清除 token
+    if (!input.webhookEnabled) {
+      updates.push('webhook_token = ?');
+      values.push(null);
+    }
+  }
+  
+  // V2: 处理 webhook token 更新（手动设置或重新生成）
+  if (input.webhookToken !== undefined) {
+    updates.push('webhook_token = ?');
+    values.push(input.webhookToken);
   }
   
   if (updates.length === 0) return current;

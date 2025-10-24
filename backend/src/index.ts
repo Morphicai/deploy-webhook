@@ -15,6 +15,7 @@ import applicationsRouter from './routes/applications';
 import authRouter from './routes/auth';
 import webhooksRouter from './routes/webhooks';
 import webhookDeployRouter from './routes/webhookDeploy';
+import deploymentLogsRouter from './routes/deploymentLogs';
 import repositoriesRouter from './routes/repositories';
 import imageWhitelistRouter from './routes/imageWhitelist';
 import caddyRouter from './routes/caddy';
@@ -50,6 +51,7 @@ export function createApp(): Express {
   app.use('/api/secret-syncs', secretSyncsRouter);
   app.use('/api/env', envRouter);
   app.use('/api/applications', applicationsRouter);
+  app.use('/api/deployment-logs', deploymentLogsRouter);
   app.use('/api/domains', domainsRouter);
   app.use('/api/repositories', repositoriesRouter);
   app.use('/api/image-whitelist', imageWhitelistRouter);

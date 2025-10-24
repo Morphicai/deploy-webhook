@@ -44,10 +44,12 @@ export function createTestApplication(overrides?: Partial<{
   repositoryId: number;
 }>) {
   // 支持新旧两种 port 格式
+  const port = overrides?.port || 9080;
+  const containerPort = overrides?.containerPort || 80;
   const ports = overrides?.ports || [
     {
-      host: overrides?.port || 9080,
-      container: overrides?.containerPort || 80
+      host: port,
+      container: containerPort
     }
   ];
   
@@ -56,6 +58,8 @@ export function createTestApplication(overrides?: Partial<{
     image: 'nginx',
     version: 'alpine',
     ports,
+    port,          // 保留旧格式用于 V1 API
+    containerPort, // 保留旧格式用于 V1 API
     envVars: overrides?.env || {},
     repositoryId: overrides?.repositoryId || 1,
     ...overrides,

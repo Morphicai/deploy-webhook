@@ -283,15 +283,19 @@ describe('Application Deployment', () => {
     }, 60000);
 
     it('应该在认证失败时返回 401', async () => {
-      const response = await client.deploy({
+      // 创建不带认证的客户端来测试 webhook secret 认证失败
+      const unauthClient = new ApiClient(app);  // 不传 token
+      
+      const response = await unauthClient.deploy({
         image: 'nginx',
         version: 'alpine',
         port: 9080,
         containerPort: 80,
-      }, 'invalid-secret');
+      }, 'invalid-secret');  // 传入无效的 webhook secret
 
       expect(response.status).toBe(401);
       expect(response.body.success).toBe(false);
+      expect(response.body.error).toContain('Unauthorized');
     });
   });
 
@@ -424,8 +428,9 @@ describe('Application Deployment', () => {
         token: 'fake-token',
       });
 
-      expect(response.status).toBe(400); // Bad Request
+      expect(response.status).toBe(404); // Not Found - 应用不存在
       expect(response.body.success).toBe(false);
+      expect(response.body.error).toContain('not found');
     });
 
     it('应该拒绝使用无效 token 的 webhook 部署', async () => {
@@ -474,8 +479,9 @@ describe('Application Deployment', () => {
         token: 'any-token',
       });
 
-      expect(deployResponse.status).toBe(401); // Unauthorized
+      expect(deployResponse.status).toBe(403); // Forbidden - Webhook 被禁用
       expect(deployResponse.body.success).toBe(false);
+      expect(deployResponse.body.error).toContain('disabled');
     });
 
     it('应该支持通过 webhook 更新应用版本', async () => {

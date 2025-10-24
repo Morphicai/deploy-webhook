@@ -241,15 +241,18 @@ function ensureDatabase(): Database.Database {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       application_id INTEGER NOT NULL,
       version TEXT NOT NULL,
+      deployment_id TEXT NOT NULL,
+      trigger_type TEXT NOT NULL CHECK(trigger_type IN ('manual', 'webhook', 'api', 'scheduled')),
+      trigger_source TEXT,
       status TEXT NOT NULL CHECK(status IN ('pending', 'success', 'failed')),
-      triggered_by TEXT NOT NULL CHECK(triggered_by IN ('webhook', 'manual', 'api')),
       error_message TEXT,
-      metadata TEXT NOT NULL DEFAULT '{}',
       started_at TEXT NOT NULL DEFAULT (datetime('now')),
       completed_at TEXT,
+      duration_ms INTEGER,
       FOREIGN KEY (application_id) REFERENCES applications(id) ON DELETE CASCADE
     );
     CREATE INDEX IF NOT EXISTS idx_deployment_logs_application_id ON deployment_logs(application_id);
+    CREATE INDEX IF NOT EXISTS idx_deployment_logs_deployment_id ON deployment_logs(deployment_id);
     CREATE INDEX IF NOT EXISTS idx_deployment_logs_status ON deployment_logs(status);
     CREATE INDEX IF NOT EXISTS idx_deployment_logs_started_at ON deployment_logs(started_at);
   `);
