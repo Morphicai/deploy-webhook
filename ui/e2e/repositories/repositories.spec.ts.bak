@@ -74,32 +74,33 @@ test.describe('Repositories 管理测试', () => {
     await createBtn.click();
     console.log('✓ 点击创建按钮');
     
-    // 3. 等待表单显示 - 等待 Registry URL 输入框
-    await page.waitForSelector('input[placeholder*="index.docker"]', { 
+    // 3. 等待表单显示 - 等待表单输入框
+    await page.waitForSelector('input[placeholder*="registry"]', { 
       state: 'visible',
       timeout: 5000 
     });
     console.log('✓ 创建表单已显示');
     
-    // 4. 填写表单 - 使用 getByLabel 更语义化
-    await page.getByLabel('Name').fill(testRepo.name);
-    await page.getByLabel('Registry URL').fill(testRepo.registry);
+    // 4. 填写表单 - 使用 label 或 placeholder 定位
+    const nameInput = page.locator('input').filter({ hasText: '' }).first();
+    await page.locator('label:has-text("Name")').locator('..').locator('input').fill(testRepo.name);
+    await page.locator('label:has-text("Registry URL")').locator('..').locator('input').fill(testRepo.registry);
     console.log(`✓ 填写表单: ${testRepo.name}`);
     
     // 5. 选择认证类型（默认是 none）
     // 无需操作，默认就是 none
     
-    // 6. 提交表单 - 点击表单内的 Create 按钮
+    // 6. 提交表单
     await page.waitForTimeout(500);
-    const submitBtn = page.locator('button:has-text("Create")');
+    const submitBtn = page.locator('button:has-text("Add Repository")').last();
     await submitBtn.click();
     console.log('✓ 提交表单');
     
     // 7. 等待表单关闭（SPA）
     await page.waitForTimeout(2000);
     
-    // 8. 验证列表中显示新创建的 Repository - 使用部分匹配（后端可能修改名称）
-    const repoNameInList = page.getByText(testRepo.name, { exact: false });
+    // 8. 验证列表中显示新创建的 Repository
+    const repoNameInList = page.locator(`text="${testRepo.name}"`);
     await expect(repoNameInList).toBeVisible({ timeout: 5000 });
     console.log('✓ Repository 出现在列表中');
     
@@ -124,7 +125,7 @@ test.describe('Repositories 管理测试', () => {
     console.log('========================================');
     
     // 1. 访问 Repositories 页面
-    await navigateToRepositories(page);
+    await page.goto('/repositories');
     await page.waitForSelector('[data-testid="repositories-page"]', { state: 'visible' });
     
     // 2. 点击创建按钮
@@ -175,7 +176,7 @@ test.describe('Repositories 管理测试', () => {
     console.log('========================================');
     
     // 1. 访问 Repositories 页面
-    await navigateToRepositories(page);
+    await page.goto('/repositories');
     await page.waitForSelector('[data-testid="repositories-page"]', { state: 'visible' });
     
     // 2. 等待列表加载
@@ -242,7 +243,7 @@ test.describe('Repositories 管理测试', () => {
     console.log('========================================');
     
     // 1. 访问 Repositories 页面
-    await navigateToRepositories(page);
+    await page.goto('/repositories');
     await page.waitForSelector('[data-testid="repositories-page"]', { state: 'visible' });
     
     // 2. 等待列表加载
@@ -299,7 +300,7 @@ test.describe('Repositories 管理测试', () => {
     console.log('========================================');
     
     // 1. 访问 Repositories 页面
-    await navigateToRepositories(page);
+    await page.goto('/repositories');
     await page.waitForSelector('[data-testid="repositories-page"]', { state: 'visible' });
     
     // 2. 等待列表加载
@@ -358,7 +359,7 @@ test.describe('Repositories 管理测试', () => {
     console.log('========================================');
     
     // 1. 访问 Repositories 页面
-    await navigateToRepositories(page);
+    await page.goto('/repositories');
     await page.waitForSelector('[data-testid="repositories-page"]', { state: 'visible' });
     
     // 2. 点击创建按钮
@@ -391,7 +392,7 @@ test.describe('Repositories 管理测试', () => {
     console.log('========================================');
     
     // 1. 访问 Repositories 页面
-    await navigateToRepositories(page);
+    await page.goto('/repositories');
     await page.waitForSelector('[data-testid="repositories-page"]', { state: 'visible' });
     
     // 2. 点击创建按钮

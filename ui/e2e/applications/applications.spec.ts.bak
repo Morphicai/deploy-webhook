@@ -43,7 +43,7 @@ test.describe('Applications 管理测试', () => {
     console.log('========================================');
     
     // 1. 导航到 Applications 页面
-    await navigateToApplications(page);
+    await page.goto('/applications');
     await page.waitForTimeout(1000);
     
     // 2. 等待页面加载
@@ -68,7 +68,7 @@ test.describe('Applications 管理测试', () => {
     console.log('========================================');
     
     // 1. 访问 Applications 页面
-    await navigateToApplications(page);
+    await page.goto('/applications');
     await page.waitForSelector('[data-testid="applications-page"]', { state: 'visible' });
     
     // 2. 点击创建按钮
@@ -132,7 +132,7 @@ test.describe('Applications 管理测试', () => {
     console.log('========================================');
     
     // 1. 访问 Applications 页面
-    await navigateToApplications(page);
+    await page.goto('/applications');
     await page.waitForSelector('[data-testid="applications-page"]', { state: 'visible' });
     
     // 2. 点击创建按钮
@@ -179,7 +179,7 @@ test.describe('Applications 管理测试', () => {
     console.log('========================================');
     
     // 1. 访问 Applications 页面
-    await navigateToApplications(page);
+    await page.goto('/applications');
     await page.waitForSelector('[data-testid="applications-page"]', { state: 'visible' });
     
     // 2. 点击创建按钮
@@ -223,7 +223,7 @@ test.describe('Applications 管理测试', () => {
     console.log('========================================');
     
     // 1. 访问 Applications 页面
-    await navigateToApplications(page);
+    await page.goto('/applications');
     await page.waitForSelector('[data-testid="applications-page"]', { state: 'visible' });
     
     // 2. 等待列表加载
@@ -291,7 +291,7 @@ test.describe('Applications 管理测试', () => {
     console.log('⚠️ 此测试需要 Docker 运行，如果 Docker 未运行，测试将失败');
     
     // 1. 访问 Applications 页面
-    await navigateToApplications(page);
+    await page.goto('/applications');
     await page.waitForSelector('[data-testid="applications-page"]', { state: 'visible' });
     
     // 2. 等待列表加载
@@ -369,7 +369,7 @@ test.describe('Applications 管理测试', () => {
     console.log('========================================');
     
     // 1. 访问 Applications 页面
-    await navigateToApplications(page);
+    await page.goto('/applications');
     await page.waitForSelector('[data-testid="applications-page"]', { state: 'visible' });
     
     // 2. 等待列表加载
@@ -433,7 +433,7 @@ test.describe('Applications 管理测试', () => {
     console.log('========================================');
     
     // 1. 访问 Applications 页面
-    await navigateToApplications(page);
+    await page.goto('/applications');
     await page.waitForSelector('[data-testid="applications-page"]', { state: 'visible' });
     
     // 2. 等待列表加载
@@ -491,7 +491,7 @@ test.describe('Applications 管理测试', () => {
     console.log('========================================');
     
     // 1. 访问 Applications 页面
-    await navigateToApplications(page);
+    await page.goto('/applications');
     await page.waitForSelector('[data-testid="applications-page"]', { state: 'visible' });
     
     // 2. 点击创建按钮
