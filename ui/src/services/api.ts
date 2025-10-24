@@ -16,7 +16,17 @@ class ApiService {
     this.client.interceptors.request.use((config: InternalAxiosRequestConfig) => {
       const token = localStorage.getItem('auth_token');
       if (token && config.headers) {
-        config.headers.Authorization = `Bearer ${token}`;
+        // V2: 智能识别 token 类型
+        if (token.startsWith('dw_')) {
+          // API Key (以 dw_ 开头)
+          config.headers['x-api-key'] = token;
+        } else if (token.startsWith('eyJ')) {
+          // JWT Token (以 eyJ 开头)
+          config.headers.Authorization = `Bearer ${token}`;
+        } else {
+          // Admin Token
+          config.headers['x-admin-token'] = token;
+        }
       }
       return config;
     });
@@ -86,12 +96,24 @@ class ApiService {
     return data;
   }
 
-  async createRepository(payload: any) {
+  async createRepository(payload: {
+    name: string;
+    registry: string;
+    username?: string;
+    password?: string;
+    isDefault?: boolean;
+  }) {
     const { data } = await this.client.post('/api/repositories', payload);
     return data;
   }
 
-  async updateRepository(id: number, payload: any) {
+  async updateRepository(id: number, payload: {
+    name?: string;
+    registry?: string;
+    username?: string;
+    password?: string;
+    isDefault?: boolean;
+  }) {
     const { data } = await this.client.put(`/api/repositories/${id}`, payload);
     return data;
   }
@@ -112,12 +134,20 @@ class ApiService {
     return data;
   }
 
-  async createImageWhitelist(payload: any) {
+  async createImageWhitelist(payload: {
+    repositoryId: number | null;
+    imagePattern: string;
+    description?: string;
+  }) {
     const { data } = await this.client.post('/api/image-whitelist', payload);
     return data;
   }
 
-  async updateImageWhitelist(id: number, payload: any) {
+  async updateImageWhitelist(id: number, payload: {
+    repositoryId?: number | null;
+    imagePattern?: string;
+    description?: string;
+  }) {
     const { data } = await this.client.put(`/api/image-whitelist/${id}`, payload);
     return data;
   }
@@ -138,13 +168,37 @@ class ApiService {
     return data;
   }
 
-  async createApplication(payload: any) {
+  async createApplication(payload: {
+    name: string;
+    image: string;
+    version?: string;
+    repositoryId?: number | null;
+    ports: Array<{ host: number; container: number }>;
+    envVars?: Record<string, string>;
+    webhookEnabled?: boolean;  // V2: Webhook 开关
+    webhookToken?: string;     // V2: Webhook Token (可选，自动生成)
+    autoDeploy?: boolean;      // V2: 自动部署
+  }) {
     const { data } = await this.client.post('/api/applications', payload);
     return data;
   }
 
-  async updateApplication(id: number, payload: any) {
+  async updateApplication(id: number, payload: {
+    name?: string;
+    image?: string;
+    version?: string;
+    repositoryId?: number | null;
+    ports?: Array<{ host: number; container: number }>;
+    envVars?: Record<string, string>;
+    webhookEnabled?: boolean;
+    autoDeploy?: boolean;
+  }) {
     const { data } = await this.client.put(`/api/applications/${id}`, payload);
+    return data;
+  }
+
+  async regenerateWebhookToken(id: number) {
+    const { data } = await this.client.post(`/api/applications/${id}/regenerate-webhook-token`);
     return data;
   }
 
@@ -173,7 +227,36 @@ class ApiService {
     return data;
   }
 
-  // Environment Variables
+  // Deployment Logs (V2)
+  async getDeploymentLogs(options?: {
+    applicationId?: number;
+    status?: 'pending' | 'success' | 'failed';
+    limit?: number;
+  }) {
+    const params = new URLSearchParams();
+    if (options?.applicationId) params.append('applicationId', options.applicationId.toString());
+    if (options?.status) params.append('status', options.status);
+    if (options?.limit) params.append('limit', options.limit.toString());
+    const { data } = await this.client.get(`/api/deployment-logs?${params.toString()}`);
+    return data;
+  }
+
+  async getDeploymentLog(id: number) {
+    const { data } = await this.client.get(`/api/deployment-logs/${id}`);
+    return data;
+  }
+
+  // Webhook V2 Deployment
+  async webhookDeployV2(payload: {
+    applicationId: number;
+    version: string;
+    token: string;
+  }) {
+    const { data } = await this.client.post('/webhook/deploy', payload);
+    return data;
+  }
+
+  // Environment Variables (V2)
   async getEnvVariables(scope?: string, projectId?: number) {
     const params = new URLSearchParams();
     if (scope) params.append('scope', scope);
@@ -187,41 +270,157 @@ class ApiService {
     key: string;
     value: string;
     projectId?: number;
+    valueType?: 'plain' | 'secret_ref';  // V2: 值类型
+    secretId?: number | null;  // V2: 引用的秘钥 ID
+    description?: string;  // V2: 描述
   }) {
     const { data } = await this.client.post('/api/env', payload);
     return data;
   }
 
-  async deleteEnvVariable(scope: string, key: string, projectId?: number) {
-    const params = new URLSearchParams({ scope, key });
-    if (projectId) params.append('projectId', projectId.toString());
-    const { data } = await this.client.delete(`/api/env?${params.toString()}`);
+  async updateEnvVariable(id: number, payload: {
+    value?: string;
+    valueType?: 'plain' | 'secret_ref';
+    secretId?: number | null;
+    description?: string;
+  }) {
+    const { data } = await this.client.put(`/api/env/${id}`, payload);
     return data;
   }
 
-  async getProjectEnv(projectIdentifier: string | number) {
-    const { data } = await this.client.get(`/api/env/project/${projectIdentifier}`);
+  async deleteEnvVariable(id: number) {
+    const { data } = await this.client.delete(`/api/env/${id}`);
     return data;
   }
 
-  // Secrets
-  async getSecrets() {
-    const { data } = await this.client.get('/api/secrets');
+  // Secret Groups (V2)
+  async getSecretGroups() {
+    const { data } = await this.client.get('/api/secret-groups');
     return data;
   }
 
-  async createSecret(payload: any) {
+  async getSecretGroup(id: number) {
+    const { data } = await this.client.get(`/api/secret-groups/${id}`);
+    return data;
+  }
+
+  async createSecretGroup(payload: {
+    name: string;
+    description?: string;
+    providerId?: number | null;
+    autoSync?: boolean;
+    syncEnabled?: boolean;
+    syncPath?: string;
+    syncStrategy?: 'merge' | 'replace';
+  }) {
+    const { data } = await this.client.post('/api/secret-groups', payload);
+    return data;
+  }
+
+  async updateSecretGroup(id: number, payload: {
+    name?: string;
+    description?: string;
+    providerId?: number | null;
+    autoSync?: boolean;
+    syncEnabled?: boolean;
+    syncPath?: string;
+    syncStrategy?: 'merge' | 'replace';
+  }) {
+    const { data } = await this.client.put(`/api/secret-groups/${id}`, payload);
+    return data;
+  }
+
+  async deleteSecretGroup(id: number) {
+    const { data } = await this.client.delete(`/api/secret-groups/${id}`);
+    return data;
+  }
+
+  // Secrets (V2)
+  async getSecrets(groupId?: number) {
+    const params = groupId ? `?groupId=${groupId}` : '';
+    const { data } = await this.client.get(`/api/secrets${params}`);
+    return data;
+  }
+
+  async createSecret(payload: {
+    groupId: number;  // V2: 必填 - 秘钥分组 ID
+    name: string;
+    value: string;  // V2: 实际的秘钥值
+    source?: 'manual' | 'synced';
+    description?: string;
+  }) {
     const { data } = await this.client.post('/api/secrets', payload);
     return data;
   }
 
-  async updateSecret(id: number, payload: any) {
+  async updateSecret(id: number, payload: {
+    name?: string;
+    value?: string;
+    description?: string;
+  }) {
     const { data } = await this.client.put(`/api/secrets/${id}`, payload);
     return data;
   }
 
   async deleteSecret(id: number) {
     const { data } = await this.client.delete(`/api/secrets/${id}`);
+    return data;
+  }
+
+  // Secret Providers (V2 - Infisical, etc.)
+  async getSecretProviders() {
+    const { data } = await this.client.get('/api/secret-providers');
+    return data;
+  }
+
+  async getSecretProvider(id: number) {
+    const { data } = await this.client.get(`/api/secret-providers/${id}`);
+    return data;
+  }
+
+  async createSecretProvider(payload: {
+    name: string;
+    type: 'infisical';
+    config: {
+      projectId: string;
+      environment: string;
+      secretPath?: string;
+      clientId: string;
+      clientSecret: string;
+    };
+  }) {
+    const { data } = await this.client.post('/api/secret-providers', payload);
+    return data;
+  }
+
+  async updateSecretProvider(id: number, payload: {
+    name?: string;
+    config?: {
+      projectId?: string;
+      environment?: string;
+      secretPath?: string;
+      clientId?: string;
+      clientSecret?: string;
+    };
+  }) {
+    const { data } = await this.client.put(`/api/secret-providers/${id}`, payload);
+    return data;
+  }
+
+  async deleteSecretProvider(id: number) {
+    const { data } = await this.client.delete(`/api/secret-providers/${id}`);
+    return data;
+  }
+
+  // Secret Syncs (V2)
+  async getSecretSyncs(providerId?: number) {
+    const params = providerId ? `?providerId=${providerId}` : '';
+    const { data } = await this.client.get(`/api/secret-syncs${params}`);
+    return data;
+  }
+
+  async triggerSecretSync(providerId: number) {
+    const { data } = await this.client.post('/api/secret-syncs/trigger', { providerId });
     return data;
   }
 

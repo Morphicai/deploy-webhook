@@ -24,11 +24,17 @@ interface Application {
 }
 
 interface EnvVariable {
+  id: number;  // V2: 必需的 ID 字段
   scope: 'global' | 'project';
   key: string;
   value: string;
   projectId?: number | null;
-  projectName?: string;
+  projectName?: string;  // 从后端查询时会填充
+  valueType?: 'plain' | 'secret_ref';  // V2: 值类型
+  secretId?: number | null;  // V2: 引用的秘钥 ID
+  description?: string;  // V2: 描述
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export const Environment: React.FC = () => {
@@ -87,7 +93,7 @@ export const Environment: React.FC = () => {
         key: formData.key,
         value: formData.value,
         projectId: formData.scope === 'project' ? formData.projectId : undefined,
-      } as any);
+      });
 
       setShowForm(false);
       setFormData({
@@ -99,8 +105,9 @@ export const Environment: React.FC = () => {
 
       await loadVariables();
       alert(t('environment.createSuccess'));
-    } catch (error: any) {
-      alert(error.message || 'Failed to create variable');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create variable';
+      alert(errorMessage);
     } finally {
       setSubmitting(false);
     }
@@ -112,11 +119,13 @@ export const Environment: React.FC = () => {
     }
 
     try {
-      await api.deleteEnvVariable(variable.scope, variable.key, variable.projectId || undefined);
+      // V2: 使用 ID 删除
+      await api.deleteEnvVariable(variable.id);
       await loadVariables();
       alert(t('environment.deleteSuccess'));
-    } catch (error: any) {
-      alert(error.message || 'Failed to delete variable');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to delete variable';
+      alert(errorMessage);
     }
   };
 
