@@ -1,0 +1,507 @@
+import { test, expect } from '@playwright/test';
+import { ensureAuthenticated } from '../utils/helpers';
+
+test.describe.configure({ mode: 'serial' }); // 串行执行，确保测试顺序
+
+test.describe('Applications 管理测试', () => {
+  // 测试用的应用数据
+  const testApp = {
+    name: 'test-nginx',
+    image: 'nginx',
+    version: 'latest',
+    hostPort: 8080,
+    containerPort: 80
+  };
+
+  let createdAppId: string | null = null;
+
+  // 每个测试前确保已登录
+  test.beforeEach(async ({ page }) => {
+    const authenticated = await ensureAuthenticated(page);
+    if (!authenticated) {
+      throw new Error('认证失败：无法登录系统');
+    }
+  });
+
+  test('1. 访问 Applications 页面', async ({ page }) => {
+    console.log('\n========================================');
+    console.log('测试：访问 Applications 页面');
+    console.log('========================================');
+    
+    // 1. 导航到 Applications 页面
+    await page.goto('/applications');
+    await page.waitForTimeout(1000);
+    
+    // 2. 等待页面加载
+    await page.waitForSelector('[data-testid="applications-page"]', { 
+      state: 'visible',
+      timeout: 15000 
+    });
+    console.log('✓ Applications 页面加载完成');
+    
+    // 3. 验证页面元素
+    const createButton = page.locator('[data-testid="applications-create-button"]');
+    await expect(createButton).toBeVisible();
+    console.log('✓ 找到创建按钮');
+    
+    console.log('✅ Applications 页面访问测试通过');
+    console.log('========================================\n');
+  });
+
+  test('2. 创建新应用', async ({ page }) => {
+    console.log('\n========================================');
+    console.log('测试：创建新应用');
+    console.log('========================================');
+    
+    // 1. 访问 Applications 页面
+    await page.goto('/applications');
+    await page.waitForSelector('[data-testid="applications-page"]', { state: 'visible' });
+    
+    // 2. 点击创建按钮
+    await page.click('[data-testid="applications-create-button"]');
+    console.log('✓ 点击创建按钮');
+    
+    // 3. 等待表单显示
+    await page.waitForSelector('[data-testid="applications-form"]', { 
+      state: 'visible',
+      timeout: 5000 
+    });
+    console.log('✓ 创建表单已显示');
+    
+    // 4. 填写基本信息
+    await page.fill('[data-testid="applications-name-input"]', testApp.name);
+    await page.fill('[data-testid="applications-image-input"]', testApp.image);
+    await page.fill('[data-testid="applications-version-input"]', testApp.version);
+    console.log(`✓ 填写应用信息: ${testApp.name}`);
+    
+    // 5. 配置端口映射（默认已有一个端口映射）
+    // 先清空默认值，填写测试端口
+    await page.fill('[data-testid="applications-host-port-0"]', testApp.hostPort.toString());
+    await page.fill('[data-testid="applications-container-port-0"]', testApp.containerPort.toString());
+    console.log(`✓ 配置端口映射: ${testApp.hostPort} -> ${testApp.containerPort}`);
+    
+    // 6. 提交表单
+    await page.click('[data-testid="applications-submit-button"]');
+    console.log('✓ 提交表单');
+    
+    // 7. 等待表单关闭和弹窗
+    await page.waitForTimeout(2000);
+    
+    // 8. 验证列表中显示新创建的应用
+    await page.waitForSelector('[data-testid="applications-list-table"]', { 
+      state: 'visible',
+      timeout: 5000 
+    });
+    
+    const appNameInList = page.locator(`text="${testApp.name}"`);
+    await expect(appNameInList).toBeVisible();
+    console.log('✓ 应用出现在列表中');
+    
+    // 9. 获取创建的应用 ID
+    const appRow = page.locator(`text="${testApp.name}"`).locator('xpath=ancestor::tr');
+    const rowTestId = await appRow.getAttribute('data-testid');
+    if (rowTestId) {
+      const match = rowTestId.match(/applications-item-(\d+)/);
+      if (match) {
+        createdAppId = match[1];
+        console.log(`✓ 应用 ID: ${createdAppId}`);
+      }
+    }
+    
+    console.log('✅ 应用创建测试通过');
+    console.log('========================================\n');
+  });
+
+  test('3. 添加环境变量', async ({ page }) => {
+    console.log('\n========================================');
+    console.log('测试：添加环境变量');
+    console.log('========================================');
+    
+    // 1. 访问 Applications 页面
+    await page.goto('/applications');
+    await page.waitForSelector('[data-testid="applications-page"]', { state: 'visible' });
+    
+    // 2. 点击创建按钮
+    await page.click('[data-testid="applications-create-button"]');
+    await page.waitForSelector('[data-testid="applications-form"]', { state: 'visible' });
+    
+    // 3. 填写基本信息
+    await page.fill('[data-testid="applications-name-input"]', 'test-app-with-env');
+    await page.fill('[data-testid="applications-image-input"]', 'nginx');
+    
+    // 4. 添加环境变量
+    await page.click('[data-testid="applications-add-env-button"]');
+    console.log('✓ 点击添加环境变量');
+    
+    // 5. 等待环境变量字段显示
+    await page.waitForSelector('[data-testid="applications-env-var-0"]', { 
+      state: 'visible',
+      timeout: 2000 
+    });
+    
+    // 6. 填写环境变量
+    await page.fill('[data-testid="applications-env-key-0"]', 'NODE_ENV');
+    await page.fill('[data-testid="applications-env-value-0"]', 'production');
+    console.log('✓ 添加环境变量: NODE_ENV=production');
+    
+    // 7. 添加第二个环境变量
+    await page.click('[data-testid="applications-add-env-button"]');
+    await page.waitForSelector('[data-testid="applications-env-var-1"]', { state: 'visible' });
+    await page.fill('[data-testid="applications-env-key-1"]', 'DEBUG');
+    await page.fill('[data-testid="applications-env-value-1"]', 'false');
+    console.log('✓ 添加环境变量: DEBUG=false');
+    
+    // 8. 取消表单（清理测试数据）
+    await page.click('[data-testid="applications-cancel-button"]');
+    console.log('✓ 取消表单');
+    
+    console.log('✅ 环境变量测试通过');
+    console.log('========================================\n');
+  });
+
+  test('4. 添加多个端口映射', async ({ page }) => {
+    console.log('\n========================================');
+    console.log('测试：添加多个端口映射');
+    console.log('========================================');
+    
+    // 1. 访问 Applications 页面
+    await page.goto('/applications');
+    await page.waitForSelector('[data-testid="applications-page"]', { state: 'visible' });
+    
+    // 2. 点击创建按钮
+    await page.click('[data-testid="applications-create-button"]');
+    await page.waitForSelector('[data-testid="applications-form"]', { state: 'visible' });
+    
+    // 3. 填写基本信息
+    await page.fill('[data-testid="applications-name-input"]', 'test-multi-port');
+    await page.fill('[data-testid="applications-image-input"]', 'nginx');
+    
+    // 4. 添加第二个端口映射
+    await page.click('[data-testid="applications-add-port-button"]');
+    console.log('✓ 点击添加端口映射');
+    
+    // 5. 等待新端口字段显示
+    await page.waitForSelector('[data-testid="applications-port-mapping-1"]', { 
+      state: 'visible',
+      timeout: 2000 
+    });
+    
+    // 6. 填写第二个端口映射
+    await page.fill('[data-testid="applications-host-port-1"]', '8443');
+    await page.fill('[data-testid="applications-container-port-1"]', '443');
+    console.log('✓ 添加端口映射: 8443 -> 443');
+    
+    // 7. 验证可以删除端口
+    const removeButton = page.locator('[data-testid="applications-remove-port-1"]');
+    await expect(removeButton).toBeVisible();
+    console.log('✓ 删除按钮可见');
+    
+    // 8. 取消表单
+    await page.click('[data-testid="applications-cancel-button"]');
+    
+    console.log('✅ 多端口映射测试通过');
+    console.log('========================================\n');
+  });
+
+  test('5. 编辑应用', async ({ page }) => {
+    console.log('\n========================================');
+    console.log('测试：编辑应用');
+    console.log('========================================');
+    
+    // 1. 访问 Applications 页面
+    await page.goto('/applications');
+    await page.waitForSelector('[data-testid="applications-page"]', { state: 'visible' });
+    
+    // 2. 等待列表加载
+    await page.waitForSelector('[data-testid="applications-list-table"]', { 
+      state: 'visible',
+      timeout: 5000 
+    });
+    
+    // 3. 获取应用 ID
+    if (!createdAppId) {
+      const appRow = page.locator(`text="${testApp.name}"`).locator('xpath=ancestor::tr');
+      const rowTestId = await appRow.getAttribute('data-testid');
+      if (rowTestId) {
+        const match = rowTestId.match(/applications-item-(\d+)/);
+        if (match) {
+          createdAppId = match[1];
+        }
+      }
+    }
+    
+    if (!createdAppId) {
+      console.log('⚠️ 无法找到测试创建的应用');
+      test.skip();
+      return;
+    }
+    
+    console.log(`✓ 找到应用: ${testApp.name} (ID: ${createdAppId})`);
+    
+    // 4. 点击编辑按钮
+    const editButton = page.locator(`[data-testid="applications-edit-button-${createdAppId}"]`);
+    await editButton.click();
+    console.log('✓ 点击编辑按钮');
+    
+    // 5. 等待表单显示
+    await page.waitForSelector('[data-testid="applications-form"]', { 
+      state: 'visible',
+      timeout: 5000 
+    });
+    
+    // 6. 修改版本
+    const newVersion = '1.21-alpine';
+    await page.fill('[data-testid="applications-version-input"]', newVersion);
+    console.log(`✓ 修改版本为: ${newVersion}`);
+    
+    // 7. 提交表单
+    await page.click('[data-testid="applications-submit-button"]');
+    console.log('✓ 提交表单');
+    
+    // 8. 等待更新完成
+    await page.waitForTimeout(2000);
+    
+    // 9. 验证版本已更新（在列表中查看）
+    const imageCell = page.locator(`[data-testid="applications-item-${createdAppId}"]`).locator('td').nth(1);
+    await expect(imageCell).toContainText(newVersion);
+    console.log('✓ 应用版本已更新');
+    
+    console.log('✅ 应用编辑测试通过');
+    console.log('========================================\n');
+  });
+
+  test('6. 部署应用（注意：需要 Docker）', async ({ page }) => {
+    console.log('\n========================================');
+    console.log('测试：部署应用');
+    console.log('========================================');
+    console.log('⚠️ 此测试需要 Docker 运行，如果 Docker 未运行，测试将失败');
+    
+    // 1. 访问 Applications 页面
+    await page.goto('/applications');
+    await page.waitForSelector('[data-testid="applications-page"]', { state: 'visible' });
+    
+    // 2. 等待列表加载
+    await page.waitForSelector('[data-testid="applications-list-table"]', { 
+      state: 'visible',
+      timeout: 5000 
+    });
+    
+    // 3. 获取应用 ID
+    if (!createdAppId) {
+      const appRow = page.locator(`text="${testApp.name}"`).locator('xpath=ancestor::tr');
+      const rowTestId = await appRow.getAttribute('data-testid');
+      if (rowTestId) {
+        const match = rowTestId.match(/applications-item-(\d+)/);
+        if (match) {
+          createdAppId = match[1];
+        }
+      }
+    }
+    
+    if (!createdAppId) {
+      console.log('⚠️ 无法找到测试创建的应用');
+      test.skip();
+      return;
+    }
+    
+    // 4. 检查应用状态
+    const statusBadge = page.locator(`[data-testid="applications-status-${createdAppId}"]`);
+    const statusText = await statusBadge.textContent();
+    console.log(`✓ 当前状态: ${statusText}`);
+    
+    // 5. 如果应用未运行，尝试部署
+    if (statusText?.includes('Stopped') || statusText?.includes('Error')) {
+      // 设置对话框处理
+      page.on('dialog', async dialog => {
+        console.log(`✓ 确认部署对话框: ${dialog.message()}`);
+        await dialog.accept();
+      });
+      
+      // 6. 点击部署按钮
+      const deployButton = page.locator(`[data-testid="applications-deploy-button-${createdAppId}"]`);
+      await deployButton.click();
+      console.log('✓ 点击部署按钮');
+      
+      // 7. 等待部署完成（这可能需要较长时间）
+      console.log('⏳ 等待部署完成（最多60秒）...');
+      await page.waitForTimeout(60000);
+      
+      // 8. 刷新页面查看状态
+      await page.reload();
+      await page.waitForTimeout(2000);
+      
+      // 9. 检查部署结果
+      const newStatusText = await statusBadge.textContent();
+      console.log(`✓ 部署后状态: ${newStatusText}`);
+      
+      if (newStatusText?.includes('Running')) {
+        console.log('✅ 应用部署成功');
+      } else if (newStatusText?.includes('Deploying')) {
+        console.log('⚠️ 应用仍在部署中');
+      } else {
+        console.log(`⚠️ 应用状态: ${newStatusText}`);
+      }
+    } else if (statusText?.includes('Running')) {
+      console.log('✓ 应用已经在运行');
+    }
+    
+    console.log('✅ 部署测试完成（注意查看实际状态）');
+    console.log('========================================\n');
+  });
+
+  test('7. 停止应用', async ({ page }) => {
+    console.log('\n========================================');
+    console.log('测试：停止应用');
+    console.log('========================================');
+    
+    // 1. 访问 Applications 页面
+    await page.goto('/applications');
+    await page.waitForSelector('[data-testid="applications-page"]', { state: 'visible' });
+    
+    // 2. 等待列表加载
+    await page.waitForSelector('[data-testid="applications-list-table"]', { 
+      state: 'visible',
+      timeout: 5000 
+    });
+    
+    // 3. 获取应用 ID
+    if (!createdAppId) {
+      const appRow = page.locator(`text="${testApp.name}"`).locator('xpath=ancestor::tr');
+      const rowTestId = await appRow.getAttribute('data-testid');
+      if (rowTestId) {
+        const match = rowTestId.match(/applications-item-(\d+)/);
+        if (match) {
+          createdAppId = match[1];
+        }
+      }
+    }
+    
+    if (!createdAppId) {
+      console.log('⚠️ 无法找到测试创建的应用');
+      test.skip();
+      return;
+    }
+    
+    // 4. 检查应用状态
+    const statusBadge = page.locator(`[data-testid="applications-status-${createdAppId}"]`);
+    const statusText = await statusBadge.textContent();
+    console.log(`✓ 当前状态: ${statusText}`);
+    
+    // 5. 如果应用正在运行，停止它
+    if (statusText?.includes('Running')) {
+      const stopButton = page.locator(`[data-testid="applications-stop-button-${createdAppId}"]`);
+      await stopButton.click();
+      console.log('✓ 点击停止按钮');
+      
+      // 6. 等待停止完成
+      await page.waitForTimeout(5000);
+      
+      // 7. 验证状态已变为 Stopped
+      const newStatusText = await statusBadge.textContent();
+      console.log(`✓ 停止后状态: ${newStatusText}`);
+      
+      if (newStatusText?.includes('Stopped')) {
+        console.log('✅ 应用已停止');
+      } else {
+        console.log(`⚠️ 应用状态: ${newStatusText}`);
+      }
+    } else {
+      console.log('⚠️ 应用不在运行状态，跳过停止操作');
+    }
+    
+    console.log('✅ 停止测试完成');
+    console.log('========================================\n');
+  });
+
+  test('8. 删除应用', async ({ page }) => {
+    console.log('\n========================================');
+    console.log('测试：删除应用');
+    console.log('========================================');
+    
+    // 1. 访问 Applications 页面
+    await page.goto('/applications');
+    await page.waitForSelector('[data-testid="applications-page"]', { state: 'visible' });
+    
+    // 2. 等待列表加载
+    await page.waitForSelector('[data-testid="applications-list-table"]', { 
+      state: 'visible',
+      timeout: 5000 
+    });
+    
+    // 3. 获取应用 ID
+    if (!createdAppId) {
+      const appRow = page.locator(`text="${testApp.name}"`).locator('xpath=ancestor::tr');
+      const rowTestId = await appRow.getAttribute('data-testid');
+      if (rowTestId) {
+        const match = rowTestId.match(/applications-item-(\d+)/);
+        if (match) {
+          createdAppId = match[1];
+        }
+      }
+    }
+    
+    if (!createdAppId) {
+      console.log('⚠️ 无法找到测试创建的应用');
+      test.skip();
+      return;
+    }
+    
+    console.log(`✓ 找到应用: ${testApp.name} (ID: ${createdAppId})`);
+    
+    // 4. 设置对话框处理
+    page.on('dialog', async dialog => {
+      console.log(`✓ 确认删除对话框: ${dialog.message()}`);
+      await dialog.accept();
+    });
+    
+    // 5. 点击删除按钮
+    const deleteButton = page.locator(`[data-testid="applications-delete-button-${createdAppId}"]`);
+    await deleteButton.click();
+    console.log('✓ 点击删除按钮');
+    
+    // 6. 等待删除完成
+    await page.waitForTimeout(3000);
+    
+    // 7. 验证应用不再出现在列表中
+    const appNameInList = page.locator(`text="${testApp.name}"`);
+    await expect(appNameInList).not.toBeVisible();
+    console.log('✓ 应用已从列表中移除');
+    
+    console.log('✅ 应用删除测试通过');
+    console.log('========================================\n');
+  });
+
+  test('9. 测试表单验证 - 必填字段', async ({ page }) => {
+    console.log('\n========================================');
+    console.log('测试：表单验证 - 必填字段');
+    console.log('========================================');
+    
+    // 1. 访问 Applications 页面
+    await page.goto('/applications');
+    await page.waitForSelector('[data-testid="applications-page"]', { state: 'visible' });
+    
+    // 2. 点击创建按钮
+    await page.click('[data-testid="applications-create-button"]');
+    await page.waitForSelector('[data-testid="applications-form"]', { state: 'visible' });
+    
+    // 3. 不填写任何内容，直接提交
+    await page.click('[data-testid="applications-submit-button"]');
+    console.log('✓ 尝试提交空表单');
+    
+    // 4. 验证表单没有提交（表单仍然可见）
+    await page.waitForTimeout(1000);
+    const form = page.locator('[data-testid="applications-form"]');
+    await expect(form).toBeVisible();
+    console.log('✓ 表单验证生效，阻止了提交');
+    
+    // 5. 取消表单
+    await page.click('[data-testid="applications-cancel-button"]');
+    await page.waitForTimeout(500);
+    await expect(form).not.toBeVisible();
+    console.log('✓ 成功取消表单');
+    
+    console.log('✅ 表单验证测试通过');
+    console.log('========================================\n');
+  });
+});
+

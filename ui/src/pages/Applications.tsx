@@ -256,7 +256,7 @@ export const Applications: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="applications-page">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Applications</h1>
@@ -264,7 +264,7 @@ export const Applications: React.FC = () => {
             Manage your containerized applications
           </p>
         </div>
-        <Button onClick={() => setShowAddForm(true)} disabled={showAddForm}>
+        <Button onClick={() => setShowAddForm(true)} disabled={showAddForm} data-testid="applications-create-button">
           <Plus className="w-4 h-4 mr-2" />
           Add Application
         </Button>
@@ -272,7 +272,7 @@ export const Applications: React.FC = () => {
 
       {/* 添加/编辑应用表单 */}
       {showAddForm && (
-        <Card>
+        <Card data-testid="applications-form">
           <CardHeader>
             <CardTitle>{editingId ? 'Edit Application' : 'Add New Application'}</CardTitle>
             <CardDescription>
@@ -290,6 +290,7 @@ export const Applications: React.FC = () => {
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   disabled={!!editingId}
+                  data-testid="applications-name-input"
                 />
                 <p className="text-xs text-muted-foreground">
                   Unique identifier for the application
@@ -303,6 +304,7 @@ export const Applications: React.FC = () => {
                   placeholder="nginx or library/nginx"
                   value={formData.image}
                   onChange={(e) => setFormData({ ...formData, image: e.target.value })}
+                  data-testid="applications-image-input"
                 />
                 <p className="text-xs text-muted-foreground">
                   Docker image name without tag
@@ -316,6 +318,7 @@ export const Applications: React.FC = () => {
                   placeholder="latest"
                   value={formData.version}
                   onChange={(e) => setFormData({ ...formData, version: e.target.value })}
+                  data-testid="applications-version-input"
                 />
               </div>
 
@@ -325,7 +328,7 @@ export const Applications: React.FC = () => {
                   value={formData.repositoryId}
                   onValueChange={(value) => setFormData({ ...formData, repositoryId: value })}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger data-testid="applications-repository-select">
                     <SelectValue placeholder="Docker Hub (Default)" />
                   </SelectTrigger>
                   <SelectContent>
@@ -345,6 +348,7 @@ export const Applications: React.FC = () => {
                   placeholder="api.mycompany.com"
                   value={formData.domain}
                   onChange={(e) => setFormData({ ...formData, domain: e.target.value })}
+                  data-testid="applications-domain-input"
                 />
                 <p className="text-xs text-muted-foreground">
                   Leave empty to use auto-generated subdomain: {formData.name ? `${formData.name}.apps.example.com` : 'your-app.apps.example.com'}
@@ -356,19 +360,20 @@ export const Applications: React.FC = () => {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label>Port Mappings *</Label>
-                <Button variant="outline" size="sm" onClick={handleAddPort}>
+                <Button variant="outline" size="sm" onClick={handleAddPort} data-testid="applications-add-port-button">
                   <Plus className="w-3 h-3 mr-1" />
                   Add Port
                 </Button>
               </div>
               {ports.map((port, index) => (
-                <div key={index} className="flex items-center gap-2">
+                <div key={index} className="flex items-center gap-2" data-testid={`applications-port-mapping-${index}`}>
                   <Input
                     type="number"
                     placeholder="Host Port"
                     value={port.host}
                     onChange={(e) => handlePortChange(index, 'host', e.target.value)}
                     className="flex-1"
+                    data-testid={`applications-host-port-${index}`}
                   />
                   <span className="text-muted-foreground">→</span>
                   <Input
@@ -377,12 +382,14 @@ export const Applications: React.FC = () => {
                     value={port.container}
                     onChange={(e) => handlePortChange(index, 'container', e.target.value)}
                     className="flex-1"
+                    data-testid={`applications-container-port-${index}`}
                   />
                   {ports.length > 1 && (
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => handleRemovePort(index)}
+                      data-testid={`applications-remove-port-${index}`}
                     >
                       <X className="w-4 h-4" />
                     </Button>
@@ -395,23 +402,24 @@ export const Applications: React.FC = () => {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label>Environment Variables (Optional)</Label>
-                <Button variant="outline" size="sm" onClick={handleAddEnvVar}>
+                <Button variant="outline" size="sm" onClick={handleAddEnvVar} data-testid="applications-add-env-button">
                   <Plus className="w-3 h-3 mr-1" />
                   Add Variable
                 </Button>
               </div>
               {envVars.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-muted-foreground" data-testid="applications-no-env-message">
                   No environment variables. Click "Add Variable" to add one.
                 </p>
               ) : (
                 envVars.map((env, index) => (
-                  <div key={index} className="flex items-center gap-2">
+                  <div key={index} className="flex items-center gap-2" data-testid={`applications-env-var-${index}`}>
                     <Input
                       placeholder="KEY"
                       value={env.key}
                       onChange={(e) => handleEnvVarChange(index, 'key', e.target.value)}
                       className="flex-1"
+                      data-testid={`applications-env-key-${index}`}
                     />
                     <span className="text-muted-foreground">=</span>
                     <Input
@@ -419,11 +427,13 @@ export const Applications: React.FC = () => {
                       value={env.value}
                       onChange={(e) => handleEnvVarChange(index, 'value', e.target.value)}
                       className="flex-1"
+                      data-testid={`applications-env-value-${index}`}
                     />
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => handleRemoveEnvVar(index)}
+                      data-testid={`applications-remove-env-${index}`}
                     >
                       <X className="w-4 h-4" />
                     </Button>
@@ -434,11 +444,11 @@ export const Applications: React.FC = () => {
 
             {/* 操作按钮 */}
             <div className="flex gap-2 pt-4 border-t">
-              <Button onClick={handleSubmit} disabled={loading}>
+              <Button onClick={handleSubmit} disabled={loading} data-testid="applications-submit-button">
                 <Save className="w-4 h-4 mr-2" />
                 {editingId ? 'Update' : 'Create'} Application
               </Button>
-              <Button variant="outline" onClick={resetForm} disabled={loading}>
+              <Button variant="outline" onClick={resetForm} disabled={loading} data-testid="applications-cancel-button">
                 Cancel
               </Button>
             </div>
@@ -456,7 +466,7 @@ export const Applications: React.FC = () => {
         </CardHeader>
         <CardContent>
           {applications.length === 0 ? (
-            <div className="text-center py-12 border border-dashed rounded-lg">
+            <div className="text-center py-12 border border-dashed rounded-lg" data-testid="applications-empty-state">
               <p className="text-muted-foreground mb-4">
                 No applications configured yet.
               </p>
@@ -467,7 +477,7 @@ export const Applications: React.FC = () => {
             </div>
           ) : (
             <div className="rounded-lg border">
-              <Table>
+              <Table data-testid="applications-list-table">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Name</TableHead>
@@ -479,8 +489,8 @@ export const Applications: React.FC = () => {
                 </TableHeader>
                 <TableBody>
                   {applications.map((app) => (
-                    <TableRow key={app.id}>
-                      <TableCell className="font-medium">{app.name}</TableCell>
+                    <TableRow key={app.id} data-testid={`applications-item-${app.id}`}>
+                      <TableCell className="font-medium" data-testid={`applications-item-name-${app.id}`}>{app.name}</TableCell>
                       <TableCell>
                         <code className="text-sm">
                           {app.image}:{app.version || 'latest'}
@@ -502,7 +512,11 @@ export const Applications: React.FC = () => {
                           </span>
                         )}
                       </TableCell>
-                      <TableCell>{getStatusBadge(app.status)}</TableCell>
+                      <TableCell>
+                        <div data-testid={`applications-status-${app.id}`}>
+                          {getStatusBadge(app.status)}
+                        </div>
+                      </TableCell>
                       <TableCell>
                         <div className="flex items-center justify-end gap-1">
                           {app.status === 'stopped' && (
@@ -513,6 +527,7 @@ export const Applications: React.FC = () => {
                                 onClick={() => handleDeploy(app.id)}
                                 disabled={loading}
                                 title="Deploy"
+                                data-testid={`applications-deploy-button-${app.id}`}
                               >
                                 <Play className="w-4 h-4" />
                               </Button>
@@ -526,6 +541,7 @@ export const Applications: React.FC = () => {
                                 onClick={() => handleStop(app.id)}
                                 disabled={loading}
                                 title="Stop"
+                                data-testid={`applications-stop-button-${app.id}`}
                               >
                                 <Square className="w-4 h-4" />
                               </Button>
@@ -535,6 +551,7 @@ export const Applications: React.FC = () => {
                                 onClick={() => handleRestart(app.id)}
                                 disabled={loading}
                                 title="Restart"
+                                data-testid={`applications-restart-button-${app.id}`}
                               >
                                 <RotateCw className="w-4 h-4" />
                               </Button>
@@ -547,6 +564,7 @@ export const Applications: React.FC = () => {
                               onClick={() => handleDeploy(app.id)}
                               disabled={loading}
                               title="Retry Deploy"
+                              data-testid={`applications-deploy-button-${app.id}`}
                             >
                               <Play className="w-4 h-4" />
                             </Button>
@@ -557,6 +575,7 @@ export const Applications: React.FC = () => {
                             onClick={() => handleEdit(app)}
                             disabled={loading || showAddForm}
                             title="Edit"
+                            data-testid={`applications-edit-button-${app.id}`}
                           >
                             <Edit className="w-4 h-4" />
                           </Button>
@@ -566,6 +585,7 @@ export const Applications: React.FC = () => {
                             onClick={() => handleDelete(app.id)}
                             disabled={loading}
                             title="Delete"
+                            data-testid={`applications-delete-button-${app.id}`}
                           >
                             <Trash2 className="w-4 h-4 text-destructive" />
                           </Button>

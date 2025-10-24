@@ -172,7 +172,7 @@ export const Repositories: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="repositories-page">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">{t('repositories.title')}</h1>
@@ -181,7 +181,7 @@ export const Repositories: React.FC = () => {
           </p>
         </div>
         {!showForm && (
-          <Button onClick={() => setShowForm(true)}>
+          <Button onClick={() => setShowForm(true)} data-testid="repositories-create-button">
             <Plus className="mr-2 h-4 w-4" />
             {t('repositories.addRepository')}
           </Button>
@@ -189,7 +189,7 @@ export const Repositories: React.FC = () => {
       </div>
 
       {showForm && (
-        <Card>
+        <Card data-testid="repositories-form">
           <CardHeader>
             <CardTitle>
               {editingId ? t('repositories.editRepository') : t('repositories.addRepository')}
@@ -209,6 +209,7 @@ export const Repositories: React.FC = () => {
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     placeholder="Docker Hub"
                     required
+                    data-testid="repositories-name-input"
                   />
                 </div>
                 
@@ -220,6 +221,7 @@ export const Repositories: React.FC = () => {
                     onChange={(e) => setFormData({ ...formData, registry: e.target.value })}
                     placeholder="https://index.docker.io/v1/"
                     required
+                    data-testid="repositories-registry-input"
                   />
                 </div>
               </div>
@@ -230,13 +232,13 @@ export const Repositories: React.FC = () => {
                   value={formData.authType}
                   onValueChange={(value: any) => setFormData({ ...formData, authType: value })}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger data-testid="repositories-authtype-select">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">{t('repositories.authTypes.none')}</SelectItem>
-                    <SelectItem value="username-password">{t('repositories.authTypes.usernamePassword')}</SelectItem>
-                    <SelectItem value="token">{t('repositories.authTypes.token')}</SelectItem>
+                    <SelectItem value="none" data-testid="repositories-authtype-none">{t('repositories.authTypes.none')}</SelectItem>
+                    <SelectItem value="username-password" data-testid="repositories-authtype-password">{t('repositories.authTypes.usernamePassword')}</SelectItem>
+                    <SelectItem value="token" data-testid="repositories-authtype-token">{t('repositories.authTypes.token')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -250,6 +252,7 @@ export const Repositories: React.FC = () => {
                       value={formData.username}
                       onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                       required
+                      data-testid="repositories-username-input"
                     />
                   </div>
                   
@@ -263,6 +266,7 @@ export const Repositories: React.FC = () => {
                         onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                         placeholder={editingId ? t('repositories.passwordPlaceholder') : ''}
                         required={!editingId}
+                        data-testid="repositories-password-input"
                       />
                       <button
                         type="button"
@@ -287,6 +291,7 @@ export const Repositories: React.FC = () => {
                       onChange={(e) => setFormData({ ...formData, token: e.target.value })}
                       placeholder={editingId ? t('repositories.tokenPlaceholder') : ''}
                       required={!editingId}
+                      data-testid="repositories-token-input"
                     />
                     <button
                       type="button"
@@ -306,6 +311,7 @@ export const Repositories: React.FC = () => {
                   checked={formData.isDefault}
                   onChange={(e) => setFormData({ ...formData, isDefault: e.target.checked })}
                   className="rounded border-gray-300"
+                  data-testid="repositories-default-checkbox"
                 />
                 <Label htmlFor="isDefault" className="cursor-pointer">
                   {t('repositories.setAsDefault')}
@@ -313,10 +319,10 @@ export const Repositories: React.FC = () => {
               </div>
 
               <div className="flex gap-2">
-                <Button type="submit">
+                <Button type="submit" data-testid="repositories-submit-button">
                   {editingId ? t('common.save') : t('common.create')}
                 </Button>
-                <Button type="button" variant="outline" onClick={handleCancel}>
+                <Button type="button" variant="outline" onClick={handleCancel} data-testid="repositories-cancel-button">
                   {t('common.cancel')}
                 </Button>
               </div>
@@ -334,15 +340,15 @@ export const Repositories: React.FC = () => {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="text-center py-8 text-muted-foreground">
+            <div className="text-center py-8 text-muted-foreground" data-testid="repositories-loading">
               {t('common.loading')}
             </div>
           ) : repositories.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
+            <div className="text-center py-8 text-muted-foreground" data-testid="repositories-empty-state">
               {t('repositories.noRepositories')}
             </div>
           ) : (
-            <Table>
+            <Table data-testid="repositories-list-table">
               <TableHeader>
                 <TableRow>
                   <TableHead>{t('repositories.name')}</TableHead>
@@ -354,12 +360,12 @@ export const Repositories: React.FC = () => {
               </TableHeader>
               <TableBody>
                 {repositories.map((repo) => (
-                  <TableRow key={repo.id}>
+                  <TableRow key={repo.id} data-testid={`repositories-item-${repo.id}`}>
                     <TableCell className="font-medium">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2" data-testid={`repositories-item-name-${repo.id}`}>
                         {repo.name}
                         {repo.isDefault && (
-                          <Badge variant="default" className="ml-2">
+                          <Badge variant="default" className="ml-2" data-testid={`repositories-default-badge-${repo.id}`}>
                             {t('repositories.default')}
                           </Badge>
                         )}
@@ -395,6 +401,7 @@ export const Repositories: React.FC = () => {
                             size="sm"
                             onClick={() => handleSetDefault(repo.id)}
                             title={t('repositories.setAsDefault')}
+                            data-testid={`repositories-set-default-button-${repo.id}`}
                           >
                             <Star className="h-4 w-4" />
                           </Button>
@@ -403,6 +410,7 @@ export const Repositories: React.FC = () => {
                           variant="ghost"
                           size="sm"
                           onClick={() => handleEdit(repo.id)}
+                          data-testid={`repositories-edit-button-${repo.id}`}
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
@@ -411,6 +419,7 @@ export const Repositories: React.FC = () => {
                             variant="ghost"
                             size="sm"
                             onClick={() => handleDelete(repo.id)}
+                            data-testid={`repositories-delete-button-${repo.id}`}
                           >
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
