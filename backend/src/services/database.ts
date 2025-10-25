@@ -16,6 +16,26 @@ function ensureDatabase(): Database.Database {
   db.exec(`
     PRAGMA journal_mode = WAL;
     PRAGMA foreign_keys = ON;
+    CREATE TABLE IF NOT EXISTS secret_providers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE,
+      type TEXT NOT NULL CHECK(type IN ('infisical', 'aws-secrets-manager', 'hashicorp-vault', 'azure-keyvault', 'gcp-secret-manager')),
+      config TEXT NOT NULL DEFAULT '{}',
+      enabled INTEGER NOT NULL DEFAULT 1,
+      auto_sync INTEGER NOT NULL DEFAULT 0,
+      last_sync_at TEXT,
+      last_sync_status TEXT,
+      last_sync_error TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_secret_providers_enabled ON secret_providers(enabled);
+    CREATE INDEX IF NOT EXISTS idx_secret_providers_auto_sync ON secret_providers(auto_sync);
+    CREATE TRIGGER IF NOT EXISTS secret_providers_updated_at
+    AFTER UPDATE ON secret_providers
+    BEGIN
+      UPDATE secret_providers SET updated_at = datetime('now') WHERE id = NEW.id;
+    END;
     CREATE TABLE IF NOT EXISTS secret_groups (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL UNIQUE,
@@ -204,26 +224,6 @@ function ensureDatabase(): Database.Database {
     AFTER UPDATE ON api_keys
     BEGIN
       UPDATE api_keys SET updated_at = datetime('now') WHERE id = NEW.id;
-    END;
-    CREATE TABLE IF NOT EXISTS secret_providers (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL UNIQUE,
-      type TEXT NOT NULL CHECK(type IN ('infisical', 'aws-secrets-manager', 'hashicorp-vault', 'azure-keyvault', 'gcp-secret-manager')),
-      config TEXT NOT NULL DEFAULT '{}',
-      enabled INTEGER NOT NULL DEFAULT 1,
-      auto_sync INTEGER NOT NULL DEFAULT 0,
-      last_sync_at TEXT,
-      last_sync_status TEXT,
-      last_sync_error TEXT,
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-    CREATE INDEX IF NOT EXISTS idx_secret_providers_enabled ON secret_providers(enabled);
-    CREATE INDEX IF NOT EXISTS idx_secret_providers_auto_sync ON secret_providers(auto_sync);
-    CREATE TRIGGER IF NOT EXISTS secret_providers_updated_at
-    AFTER UPDATE ON secret_providers
-    BEGIN
-      UPDATE secret_providers SET updated_at = datetime('now') WHERE id = NEW.id;
     END;
     CREATE TABLE IF NOT EXISTS secret_syncs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
