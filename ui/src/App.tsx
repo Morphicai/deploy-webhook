@@ -10,8 +10,7 @@ import { Dashboard } from './pages/Dashboard';
 import { Applications } from './pages/Applications';
 import { Environment } from './pages/Environment';
 import { Secrets } from './pages/Secrets';
-import { SecretGroups } from './pages/SecretGroups';
-import { SecretSyncs } from './pages/SecretSyncs';
+
 import { Repositories } from './pages/Repositories';
 import { Settings } from './pages/Settings';
 import { APIKeys } from './pages/APIKeys';
