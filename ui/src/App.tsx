@@ -10,6 +10,8 @@ import { Dashboard } from './pages/Dashboard';
 import { Applications } from './pages/Applications';
 import { Environment } from './pages/Environment';
 import { Secrets } from './pages/Secrets';
+import { SecretGroups } from './pages/SecretGroups';
+import { SecretSyncs } from './pages/SecretSyncs';
 import { Repositories } from './pages/Repositories';
 import { Settings } from './pages/Settings';
 import { APIKeys } from './pages/APIKeys';
@@ -92,6 +94,8 @@ const AppRoutes: React.FC = () => {
         <Route path="applications" element={<Applications />} />
         <Route path="environment" element={<Environment />} />
         <Route path="secrets" element={<Secrets />} />
+        <Route path="secret-groups" element={<SecretGroups />} />
+        <Route path="secret-syncs" element={<SecretSyncs />} />
         <Route path="repositories" element={<Repositories />} />
         <Route path="api-keys" element={<APIKeys />} />
         <Route path="webhooks" element={<Webhooks />} />

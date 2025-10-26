@@ -11,7 +11,9 @@ import {
   Server,
   KeyRound,
   Plug,
-  Webhook
+  Webhook,
+  FolderOpen,
+  RefreshCw
 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -53,6 +55,18 @@ export const Sidebar: React.FC = () => {
       path: '/secrets',
       icon: <Key className="w-5 h-5" />,
       translationKey: 'nav.secrets',
+    },
+    {
+      name: t('nav.secretGroups'),
+      path: '/secret-groups',
+      icon: <FolderOpen className="w-5 h-5" />,
+      translationKey: 'nav.secretGroups',
+    },
+    {
+      name: t('nav.secretSyncs'),
+      path: '/secret-syncs',
+      icon: <RefreshCw className="w-5 h-5" />,
+      translationKey: 'nav.secretSyncs',
     },
     {
       name: t('nav.repositories'),
