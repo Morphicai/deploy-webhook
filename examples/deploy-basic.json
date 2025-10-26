@@ -1,0 +1,8 @@
+{
+  "name": "my-app",
+  "repo": "org/my-app",
+  "version": "1.0.0",
+  "port": 8080,
+  "containerPort": 3000,
+  "secret": "$WEBHOOK_SECRET"
+}

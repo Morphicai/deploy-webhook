@@ -7,6 +7,8 @@ export interface DeployRequest {
   port?: string | number;
   containerPort?: string | number;
   secret?: string;
+  volumes?: string[];
+  environment?: string[];
 }
 
 export interface DeployResponse {

@@ -139,6 +139,27 @@ export class DeployService {
     }
   }
 
+  private parseVolumes(volumes?: string[]): Docker.MountSettings[] {
+    if (!volumes || !Array.isArray(volumes)) return [];
+    
+    return volumes.map(volume => {
+      const [hostPath, containerPath, ...rest] = volume.split(':');
+      const mode = rest.length > 0 ? rest[0] : 'rw';
+      
+      return {
+        Type: 'bind',
+        Source: hostPath,
+        Target: containerPath,
+        ReadOnly: mode === 'ro'
+      } as Docker.MountSettings;
+    });
+  }
+
+  private parseEnvironment(environment?: string[]): string[] {
+    if (!environment || !Array.isArray(environment)) return [];
+    return environment.filter(env => typeof env === 'string' && env.includes('='));
+  }
+
   async deploy(params: DeployRequest): Promise<DeployResponse> {
     const deploymentId = this.generateDeploymentId();
     const startedAt = new Date().toISOString();
@@ -154,12 +175,18 @@ export class DeployService {
       await this.pullImage(fullImage);
       await this.stopAndRemoveContainer(name);
 
+      // Parse volumes and environment variables
+      const mounts = this.parseVolumes(params.volumes);
+      const env = this.parseEnvironment(params.environment);
+
       const createOptions: Docker.ContainerCreateOptions = {
         name,
         Image: fullImage,
+        Env: env.length > 0 ? env : undefined,
         HostConfig: {
           RestartPolicy: { Name: 'unless-stopped' },
           PortBindings: { [`${containerPort}/tcp`]: [{ HostPort: String(port) }] },
+          Mounts: mounts.length > 0 ? mounts : undefined,
         },
         ExposedPorts: { [`${containerPort}/tcp`]: {} },
       };
@@ -170,11 +197,21 @@ export class DeployService {
       await this.pruneImagesIfNeeded();
 
       const result: DeployResponse = { success: true, code: 0, stdout: `deploymentId=${deploymentId}`, stderr: '', deploymentId };
-      await this.sendCallback({ ...result, startedAt, finishedAt: new Date().toISOString(), params: { name, repo, version, port, containerPort } });
+      await this.sendCallback({ 
+        ...result, 
+        startedAt, 
+        finishedAt: new Date().toISOString(), 
+        params: { name, repo, version, port, containerPort, volumes: params.volumes, environment: params.environment } 
+      });
       return result;
     } catch (error: any) {
       const fail: DeployResponse = { success: false, error: error?.message || String(error), stderr: error?.stack || String(error), deploymentId };
-      await this.sendCallback({ ...fail, startedAt, finishedAt: new Date().toISOString(), params: { name, repo, version, port, containerPort } });
+      await this.sendCallback({ 
+        ...fail, 
+        startedAt, 
+        finishedAt: new Date().toISOString(), 
+        params: { name, repo, version, port, containerPort, volumes: params.volumes, environment: params.environment } 
+      });
       return fail;
     }
   }

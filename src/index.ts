@@ -36,6 +36,8 @@ app.post('/deploy', async (req: Request<{}, any, DeployRequest>, res: Response) 
       repo: req.body?.repo,
       port: req.body?.port,
       containerPort: req.body?.containerPort,
+      volumes: req.body?.volumes,
+      environment: req.body?.environment,
     };
 
     const valid = validateDeployPayload(payload);

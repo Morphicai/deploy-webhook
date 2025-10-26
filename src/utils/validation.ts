@@ -26,5 +26,23 @@ export function validateDeployPayload(payload: DeployRequest): { ok: true } | { 
     }
   }
 
+  // Validate volumes format if provided
+  if (payload.volumes && Array.isArray(payload.volumes)) {
+    for (const volume of payload.volumes) {
+      if (typeof volume !== 'string' || !volume.includes(':')) {
+        return { ok: false, error: `Invalid volume format: ${volume}. Expected format: "host_path:container_path"` };
+      }
+    }
+  }
+
+  // Validate environment variables format if provided
+  if (payload.environment && Array.isArray(payload.environment)) {
+    for (const env of payload.environment) {
+      if (typeof env !== 'string' || !env.includes('=')) {
+        return { ok: false, error: `Invalid environment variable format: ${env}. Expected format: "KEY=value"` };
+      }
+    }
+  }
+
   return { ok: true };
 }

@@ -14,6 +14,8 @@ docker pull focusbe/deploy-webhook:latest
 - 🔧 **宿主机 Docker 管理**：通过 Docker socket 操作宿主机容器
 - 🔒 **安全认证**：Webhook 密钥校验 + 可选镜像白名单
 - 🚀 **快速部署**：指定 name/repo/version/port/containerPort 即可
+- 📁 **卷挂载支持**：支持自定义卷挂载，数据持久化
+- 🌍 **环境变量**：支持自定义环境变量配置
 - 📣 **回调通知**：可选异步回调部署结果
 - 🧹 **镜像清理**：可选清理 dangling images
 - 📝 **TypeScript**：清晰的类型与结构化实现
@@ -39,6 +41,8 @@ docker run -d --name deploy-webhook -p 9000:9000 \
 curl http://localhost:9000/health
 
 ### 3) 触发部署（CI 示例）
+
+**基础部署:**
 ```bash
 curl -X POST http://<host>:9000/deploy \
   -H "Content-Type: application/json" \
@@ -49,6 +53,22 @@ curl -X POST http://<host>:9000/deploy \
     "version": "1.2.3",
     "port": 8080,
     "containerPort": 3000
+  }'
+```
+
+**带卷挂载和环境变量的部署:**
+```bash
+curl -X POST http://<host>:9000/deploy \
+  -H "Content-Type: application/json" \
+  -H "x-webhook-secret: your-secret" \
+  -d '{
+    "name": "myproxy",
+    "repo": "focusbe/myproxy",
+    "version": "latest",
+    "port": 8901,
+    "containerPort": 3000,
+    "volumes": ["/opt/myproxy/storage/my-proxy/data:/app/data"],
+    "environment": ["CONFIG_PATH=/app/data/config.json", "NODE_ENV=production"]
   }'
 ```
 
@@ -110,7 +130,7 @@ Docker Desktop（Mac/Windows）也可在设置中启用 “Expose daemon on tcp:
 - `Content-Type: application/json`
 - `x-webhook-secret: <your-secret>` (或在请求体中提供)
 
-**请求体（仅需 5 个字段）:**
+**请求体（基础字段）:**
 ```json
 {
   "name": "container-name",
@@ -120,6 +140,35 @@ Docker Desktop（Mac/Windows）也可在设置中启用 “Expose daemon on tcp:
   "containerPort": 3000
 }
 ```
+
+**请求体（完整字段，包含卷挂载和环境变量）:**
+```json
+{
+  "name": "container-name",
+  "repo": "org/app",
+  "version": "1.0.0",
+  "port": 8080,
+  "containerPort": 3000,
+  "volumes": [
+    "/host/path:/container/path",
+    "/opt/data:/app/data:ro"
+  ],
+  "environment": [
+    "NODE_ENV=production",
+    "CONFIG_PATH=/app/data/config.json",
+    "API_KEY=your-api-key"
+  ]
+}
+```
+
+**字段说明:**
+- `name`: 容器名称（必需）
+- `repo`: 镜像仓库路径（必需）
+- `version`: 镜像版本标签（必需）
+- `port`: 宿主机端口（必需）
+- `containerPort`: 容器内端口（必需）
+- `volumes`: 卷挂载数组（可选），格式：`"宿主机路径:容器路径[:权限]"`
+- `environment`: 环境变量数组（可选），格式：`"KEY=value"`
 
 **响应:**
 ```json
